@@ -20,8 +20,8 @@ Cada registro representa **una línea de venta**: un cliente compró cierta cant
 
 | # | Problema | Registros | Decisión |
 |---|----------|-----------|----------|
-| 1 | **Ciudad con mayúsculas inconsistentes**: `"medellín"` en minúscula frente a `"Medellín"`. Un conteo por ciudad la trataría como una ciudad distinta. | id 5 | Normalizar las ciudades antes de agrupar (capitalizar la primera letra, o comparar en minúsculas). No se modifica el dato original en `datos.js`, la limpieza se hace al analizar. |
-| 2 | **Cantidad igual a 0**: una venta sin unidades no genera ingreso y distorsiona conteos y promedios. | id 8 | Excluirla de los cálculos de ingresos y unidades. Se conserva en los datos y se registra como posible venta cancelada o error de captura, pendiente de confirmar con el negocio. |
+| 1 | **Ciudad con mayúsculas inconsistentes y espacio sobrante**: "medellín " (minúscula y con espacio al final) frente a "Medellín". | id 5 | Normalizar las ciudades antes de agrupar (capitalizar la primera letra, o comparar en minúsculas). No se modifica el dato original en `datos.js`, la limpieza se hace al analizar. |
+| 2 | **Cantidad igual a 0**: una venta sin unidades no genera ingreso y distorsiona conteos y promedios. | id 8 | Excluirla del conteo de ventas válidas (ticket promedio y venta mayor); en totales y unidades no afecta porque suma 0. Se conserva en los datos y se registra como posible venta cancelada o error de captura, pendiente de confirmar con el negocio. |
 | 3 | **Clientes repetidos**: C01 aparece 3 veces, C02 y C03 aparecen 2 veces. El número de registros (12) no es el número de clientes (8). | ids 1, 4, 11 (C01); 2, 7 (C02); 3, 9 (C03) | Para contar clientes, usar valores únicos y no `ventas.length`. Los registros repetidos no se eliminan: son compras reales distintas. |
 | 4 | **`precio` es unitario**: sumar `precio` directamente daría un ingreso incorrecto. | Todos | Calcular el ingreso siempre como `cantidad * precio`. |
 | 5 | **Mezcla de tipos de producto**: cafés (250 g y 500 g) se venden junto a accesorios (prensa, molino). Comparar unidades entre ellos no es equivalente. | Varios | Mantenerlos juntos por ahora; en el análisis, considerar separar categorías si hace falta. |
@@ -98,7 +98,7 @@ devolver total
 
 Otras decisiones:
 - **Venta con cantidad 0 (id 8):** se ignora en `ventaMayor` y `ticketPromedio` (no es una venta válida). En totales y unidades no hace falta excluirla porque suma 0.
-- **Ciudad mal escrita (id 5, `"medellín"`):** `ventasPorCiudad` normaliza ambos lados con `trim()` y `toLowerCase()`. El dato original no se modifica.
+- **Ciudad mal escrita (id 5, "medellín ")**: `ventasPorCiudad` normaliza ambos lados con `trim()` y `toLowerCase()`. El dato original no se modifica.
 - **Ciudad sin ventas** (por ejemplo `"Cartagena"`): devuelve 0.
 
 ## Trazas manuales
@@ -149,3 +149,41 @@ Inicio: `mayor = null`
 
 Ventas válidas (cantidad > 0): 11 de 12 (se excluye id 8). Total = 985000.
 985000 / 11 ≈ **89.545,45**. Coincide con el programa.
+
+---
+
+# MiniReto 3: Del ciclo al método
+
+## Preguntas de la sesión por función
+
+| Función | ¿Qué recorro? | ¿Qué filtro? | ¿Qué transformo? | ¿Qué acumulo? | ¿Cómo agrupo? |
+|---|---|---|---|---|---|
+| `totalVendidoM` | Todas las ventas | Nada | Cada venta en su valor (`map`) | La suma de valores (`reduce`, inicio 0) | No agrupa |
+| `unidadesVendidasM` | Todas las ventas | Nada | Nada (se lee `cantidad` directo) | La suma de cantidades (`reduce`, inicio 0) | No agrupa |
+| `ventasPorCiudadM` | Todas las ventas | Solo las de la ciudad pedida, normalizada (`filter`) | Cada venta en su valor | La suma de valores (`reduce`, inicio 0) | No agrupa |
+| `totalPorCiudad` | Todas las ventas | Nada | El nombre de ciudad, normalizado | El valor de venta en cada ciudad | Objeto con la ciudad como clave; si no existe se inicia en 0 |
+| `unidadesPorProducto` | Todas las ventas | Nada | Nada | Las unidades de cada producto | Objeto con el producto como clave |
+| `topProductosPorValor` | Las ventas y luego las entradas del diccionario | Nada con `filter`; `slice` recorta a los k primeros | Entradas `[producto, valor]` en objetos `{ producto, valor }` (`Object.entries` + `map`) | El valor generado por producto | Objeto por producto; después se ordena una copia con `sort` descendente |
+
+## Decisiones
+
+- **Sin modificar el original:** `topProductosPorValor` ordena una copia (`[...ranking]`). `sort` modifica el arreglo sobre el que se llama, por eso nunca se llama sobre `ventas`.
+- **`reduce` siempre con valor inicial** (`0` o `{}`), para que un arreglo vacío no lance error.
+- **Normalización de ciudad:** `trim()`, `toLowerCase()` y primera letra en mayúscula, así "Bogotá" y "Bogotá " caen en el mismo grupo.
+- **Venta con cantidad 0 (id 8):** no necesita filtro especial, aporta 0 a totales y unidades.
+- **Empates en el ranking:** `sort` es estable, por lo que los productos con igual valor conservan el orden en que aparecieron.
+- **`topProductosPorValor([], 3)`:** devuelve `[]`. Si k es mayor que los productos disponibles, devuelve todos.
+
+## Verificación ciclo vs. método
+
+`node src/verificar.js` mostró **OK en los 12 pares**: 3 indicadores (`totalVendido`, `unidadesVendidas`, `ventasPorCiudad`), este último probado con dos escrituras ("Medellín" y "  BOGOTÁ "), sobre 3 conjuntos de datos (completo, un elemento y vacío). Cada método reproduce exactamente el resultado del ciclo que reemplaza.
+
+Resultados con la muestra completa: totalVendido 985000, unidadesVendidas 21, ventasPorCiudad "Medellín" 356000 y "Bogotá" 276000.
+
+## Pruebas de agrupaciones y ranking
+
+`node src/probar-agrupaciones.js` confirmó:
+- `totalPorCiudad` devuelve exactamente 4 ciudades: Medellín 356000, Bogotá 276000, Cali 185000, Pereira 168000 (suma 985000, igual que `totalVendido`).
+- `unidadesPorProducto`: Huila 7, Nariño 6, Sierra 5, Prensa francesa 2, Molino manual 1 (suma 21).
+- `topProductosPorValor(ventas, 3)`: Huila (294000), Sierra (225000), Prensa francesa (190000), de mayor a menor.
+- `ventas` conserva su orden original después de llamar a las funciones (se comparó una copia en texto antes y después con `JSON.stringify`).
