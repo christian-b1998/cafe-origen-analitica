@@ -293,3 +293,96 @@ Ninguna función es O(n²): ninguna tiene un ciclo dentro de otro ciclo sobre la
 ## Conclusión
 
 Las constantes (1, 2 o 4 operaciones por venta) no importan para el crecimiento; lo que importa es cuántas veces se recorre el arreglo. Con 100.000 ventas, un reporte que recorre los datos unas pocas veces sigue siendo manejable, pero lo que sí podría dispararse es un ciclo dentro de otro (eso se investiga en el MiniReto 6).
+
+---
+
+# MiniReto 6: El reporte que se volvió lento
+
+## Verificación de la función
+
+Con los 12 datos del Día 1, `clientesRecurrentes` devuelve `C01, C02, C03`, que son los clientes con más de una compra (C01 en los ids 1, 4 y 11; C02 en 2 y 7; C03 en 3 y 9).
+
+## Traza con 5 ventas
+
+Clientes de las 5 ventas, por posición: `[C01, C02, C01, C03, C02]`
+
+| i | j | Comparación | ¿Iguales? | Acción |
+|---|---|---|---|---|
+| 0 | 1 | C01 vs C02 | no | |
+| 0 | 2 | C01 vs C01 | sí | no está en `recurrentes`, se agrega C01 |
+| 0 | 3 | C01 vs C03 | no | |
+| 0 | 4 | C01 vs C02 | no | |
+| 1 | 2 | C02 vs C01 | no | |
+| 1 | 3 | C02 vs C03 | no | |
+| 1 | 4 | C02 vs C02 | sí | no está en `recurrentes`, se agrega C02 |
+| 2 | 3 | C01 vs C03 | no | |
+| 2 | 4 | C01 vs C02 | no | |
+| 3 | 4 | C03 vs C02 | no | |
+
+**Total: 10 comparaciones** con n = 5. Resultado: `[C01, C02]`.
+
+## Generalización
+
+Para cada i, el ciclo interno hace (n - 1 - i) comparaciones: la primera venta se compara con n-1, la segunda con n-2, y así hasta 1.
+
+(n-1) + (n-2) + ... + 1 = **n(n-1)/2 ≈ n²/2** comparaciones.
+
+| n | Comparaciones |
+|---|---|
+| 5 | 10 |
+| 12 | 66 |
+| 1.000 | 499.500 |
+| 100.000 | ≈ 5.000.000.000 |
+| 1.000.000 | ≈ 500.000.000.000 |
+
+Al duplicar n, las comparaciones se multiplican por 4: (2n)²/2 = 4 · n²/2. Es complejidad **O(n²)**.
+
+## Tabla de tiempos
+
+| n | Tiempo (ms) | Veces vs. anterior |
+|---|---|---|
+| 1.000 | 3.08 | - |
+| 2.000 | 12.25 | 3.97 |
+| 4.000 | 53.05 | 4.33 |
+| 8.000 | 249.59 | 4.71 |
+| 16.000 | 894.05 | 3.58 |
+
+## Análisis
+
+Cada vez que n se duplica, el tiempo se multiplica aproximadamente por **4**: los valores medidos fueron 3,97, 4,33, 4,71 y 3,58, con un promedio de unas 4,15 veces. La variación alrededor de 4 se debe al ruido del equipo (otros procesos) y a las optimizaciones de Node mientras corre.
+
+Esto coincide con O(n²): si el trabajo es proporcional a n², al pasar de n a 2n el trabajo es (2n)² = 4n². Si la función fuera lineal, el tiempo se duplicaría (x2); aquí se cuadruplica.
+
+## Estimación
+
+Con la medición de n = 16.000 calculo la constante k = tiempo / n²:
+
+k = 894,05 ms / 16.000² ≈ 3,49 × 10⁻⁶ ms
+
+Luego tiempo(n) ≈ k · n².
+
+| n | Estimación | Medición real |
+|---|---|---|
+| 100.000 | ≈ 34,9 s | 53,9 s |
+| 1.000.000 | ≈ 3.492 s (≈ 58 min) | no se ejecuta |
+
+Pasar de 16.000 a 1.000.000 es multiplicar n por 62,5, y el tiempo por 62,5² ≈ 3.900 (894 ms × 3.900 ≈ 3.492.000 ms).
+
+**Comparación con la medición real:** con n = 100.000 el programa tardó 53,9 s, un 54 % más de lo estimado (34,9 s). La estimación cuadrática se queda corta con datos grandes, probablemente porque los arreglos más grandes aprovechan peor la memoria rápida del procesador y porque `includes` pesa más. Por eso la estimación de 1.000.000 es un **mínimo**: si se corrige con el mismo desvío (k ≈ 5,39 × 10⁻⁶ ms, calculada con la medición de 100.000), saldrían unos 5.390 s, es decir, **cerca de 1,5 horas**.
+
+## Costo oculto: `recurrentes.includes`
+
+`includes` también recorre un arreglo: busca el cliente en `recurrentes` elemento por elemento. Es un ciclo escondido dentro del ciclo doble.
+
+- Solo se ejecuta cuando los dos clientes coinciden, porque `&&` evalúa la segunda condición únicamente si la primera es verdadera.
+- Cada ejecución cuesta, como máximo, el tamaño de `recurrentes`, que puede llegar a n/2 clientes.
+- **Con datos como los generados** (clientes repartidos al azar), las coincidencias son del orden de n, muy pocas frente a las n²/2 comparaciones. Aun así, `includes` agrega un costo adicional, y puede explicar parte de por qué el tiempo real superó la estimación. La complejidad sigue dominada por el ciclo doble: **O(n²)**.
+- **En el peor caso** (muchas coincidencias y `recurrentes` ya grande, por ejemplo unos n/2 clientes que repiten y además muchas ventas de un cliente que se agregó al final), `includes` se ejecuta hasta del orden de n² veces y cada ejecución recorre hasta ~n/2 elementos. El costo podría subir hacia **O(n³)**.
+
+## Conclusión para la gerente
+
+El reporte se pone lento porque, para saber qué clientes repiten, el programa toma cada venta y la compara con **todas las demás** del historial. Con 12 ventas son 66 comparaciones y no se nota.
+
+Pero el trabajo no crece de forma proporcional: **si el historial se duplica, el trabajo se multiplica por cuatro**. En nuestras pruebas, 16.000 ventas tardaron casi un segundo, 100.000 ventas tardaron cerca de 54 segundos y, para un millón de ventas, se estima alrededor de una hora y media. Un historial anual puede estar en esa zona, y por eso el reporte "se quedó pensando".
+
+No es un problema del computador, sino de la forma en que se hace la comparación. Se puede corregir con un método que recorra el historial una sola vez: así el tiempo crecería en proporción al tamaño de los datos, y no al cuadrado.
