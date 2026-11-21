@@ -176,6 +176,43 @@ function totalCiudadUnaPasada(ventas, ciudad) {
   return total;
 }
 
+// ===== MiniReto 9: clientes recurrentes en tiempo lineal =====
+
+// Versión con Set: un solo recorrido, con un Set de clientes ya vistos
+// y otro Set con los recurrentes (sin repetidos).
+function clientesRecurrentesSet(ventas) {
+  const vistos = new Set();
+  const recurrentes = new Set();
+  for (const venta of ventas) {
+    if (vistos.has(venta.cliente)) {
+      recurrentes.add(venta.cliente);
+    } else {
+      vistos.add(venta.cliente);
+    }
+  }
+  return [...recurrentes];
+}
+
+// Map cliente -> número de compras.
+function comprasPorCliente(ventas) {
+  const compras = new Map();
+  for (const venta of ventas) {
+    compras.set(venta.cliente, (compras.get(venta.cliente) || 0) + 1);
+  }
+  return compras;
+}
+
+// Versión con Map: los recurrentes son los clientes con más de 1 compra.
+function clientesRecurrentesMap(ventas) {
+  const recurrentes = [];
+  for (const [cliente, compras] of comprasPorCliente(ventas)) {
+    if (compras > 1) {
+      recurrentes.push(cliente);
+    }
+  }
+  return recurrentes;
+}
+
 module.exports = {
   valorVenta,
   totalVendido,
@@ -194,4 +231,7 @@ module.exports = {
   clientesRecurrentes,
   totalCiudadCadena,
   totalCiudadUnaPasada,
+  clientesRecurrentesSet,
+  comprasPorCliente,
+  clientesRecurrentesMap,
 };

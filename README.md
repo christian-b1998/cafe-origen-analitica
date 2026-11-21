@@ -45,6 +45,8 @@ No hay dependencias que instalar.
 - `RENDIMIENTO.md`: informe de rendimiento (complejidad, mediciones, proyección, riesgos y plan de optimización).
 - `bitacora.md`: diccionario de datos, casos borde, pseudocódigo, trazas, registro de depuración y análisis de rendimiento.
 - `src/probar-recurrentes.js`: prueba de `clientesRecurrentes` con los 12 datos del Día 1.
+- `src/verificar-recurrentes.js`: comprueba que las tres versiones de clientes recurrentes dan los mismos clientes.
+- `src/medir-recurrentes.js`: compara el tiempo de la versión original, la de Set y la de Map.
 
 ## Otros scripts
 

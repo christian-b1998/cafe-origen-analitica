@@ -158,3 +158,7 @@ devolver recurrentes
 - Los tiempos dependen del computador y varían entre ejecuciones; se usan como orden de magnitud.
 - La complejidad espacial se obtuvo del análisis del código, no con una herramienta de medición de memoria.
 - La normalización de ciudades no unifica tildes (`"Bogota"` y `"Bogotá"` serían grupos distintos).
+
+## Actualización (MiniReto 9)
+
+`clientesRecurrentes` se reemplazó por `clientesRecurrentesMap` (Map cliente -> compras): tiempo O(n + c), memoria extra O(c). Con 100.000 ventas pasó de 53,9 s a decenas de milisegundos. Con esto, el mayor riesgo del motor pasa a ser `totalCiudadCadena` (memoria O(n)), que no se usa en el reporte.

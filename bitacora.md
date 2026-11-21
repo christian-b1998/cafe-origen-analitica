@@ -510,3 +510,121 @@ Se le pidió a un compañero que revisara `RENDIMIENTO.md`. Preguntas que se le 
 - Un ciclo dentro de otro es lo que vuelve lento un reporte: `clientesRecurrentes` pasa de 66 comparaciones con 12 ventas a casi 50 millones con 10.000.
 - Dos funciones del mismo orden (O(n)) pueden costar distinto: la cadena de métodos fue unas 2,6 veces más lenta que el recorrido único y usa memoria proporcional a n.
 - El siguiente paso es optimizar `clientesRecurrentes` a O(n) (MiniReto 9).
+
+---
+
+# MiniReto 9: Clientes recurrentes en tiempo lineal
+
+## Método de resolución (seis fases)
+
+### 1. Entender el problema
+
+- **Entrada:** un arreglo de ventas; cada venta tiene una propiedad `cliente` (texto, por ejemplo `"C01"`).
+- **Salida:** un arreglo con los códigos de los clientes que aparecen en **más de una venta**, cada uno una sola vez.
+- **Restricciones:**
+  - Con 100.000 ventas debe responder en menos de un segundo.
+  - No debe modificar el arreglo de ventas.
+  - El orden del resultado no importa (las versiones se comparan ordenadas).
+- **Pregunta de fondo:** para cada cliente, ¿ya lo había visto antes?
+
+### 2. Ejemplos y casos borde
+
+| Clientes por venta | Resultado esperado | Qué comprueba |
+|---|---|---|
+| `[]` | `[]` | Arreglo vacío: no hay error. |
+| `[A]` | `[]` | Una sola compra no es recurrente. |
+| `[A, B, C]` | `[]` | Todos distintos. |
+| `[A, A, A, A]` | `[A]` | Un cliente con muchas compras aparece una sola vez. |
+| `[A, B, B, A]` | `[A, B]` (en cualquier orden) | El orden puede cambiar entre versiones. |
+| Datos del Día 1 | `[C01, C02, C03]` | Caso real: C01 (3 compras), C02 (2) y C03 (2). |
+
+**Decisión sobre la venta con cantidad 0 (id 8):** cada registro cuenta como una compra, igual que en la versión original, para que las tres versiones den el mismo resultado. Queda como pregunta pendiente para el negocio si una venta con cantidad 0 debería contar.
+
+### 3. Fuerza bruta
+
+Es la versión actual, `clientesRecurrentes`: un ciclo doble que compara cada venta con todas las siguientes y usa `includes` para no repetir clientes.
+
+- **Tiempo:** O(n²): n(n-1)/2 comparaciones (≈ 5.000.000.000 con 100.000 ventas).
+- **Espacio:** O(r), con r clientes recurrentes.
+- **Evidencia del MiniReto 6:** 53,9 s con 100.000 ventas, muy lejos del segundo exigido.
+
+### 4. Idea de optimización
+
+El trabajo que se repite es buscar al mismo cliente una y otra vez entre todas las ventas. La solución es **recordar a quién ya vimos**, con una estructura donde preguntar "¿ya está?" sea una operación directa (`Set` y `Map` usan una tabla hash, con consulta de costo constante en promedio):
+
+```
+Con Set:                              Con Map:
+vistos = Set vacío                    compras = Map vacío (cliente -> compras)
+recurrentes = Set vacío               para cada venta: sumar 1 a compras[cliente]
+para cada venta:                      recurrentes = clientes con compras > 1
+    si cliente está en vistos:
+        agregar a recurrentes
+    si no: agregar a vistos
+```
+
+Se recorren las ventas una sola vez.
+
+### 5. Implementación
+
+- `clientesRecurrentesSet(ventas)`: usa `vistos.has`, `vistos.add` y `recurrentes.add`. Devuelve `[...recurrentes]`.
+- `comprasPorCliente(ventas)`: usa `compras.get` y `compras.set` y devuelve el `Map` cliente -> compras.
+- `clientesRecurrentesMap(ventas)`: recorre ese `Map` y se queda con los clientes con más de una compra.
+
+Complejidad de las dos versiones:
+
+| | Set | Map |
+|---|---|---|
+| Tiempo | O(n): por cada venta, una consulta y una inserción | O(n + c): un recorrido de n ventas y otro de c clientes distintos (c ≤ n) |
+| Espacio extra | O(c + r) | O(c) |
+
+Por venta se hacen apenas 2 o 3 operaciones, es decir, unas 300.000 con 100.000 ventas, frente a ≈ 5.000.000.000 comparaciones de la versión original.
+
+### 6. Probar
+
+`node src/verificar-recurrentes.js` mostró `OK` en las siete comparaciones: datos del Día 1 (C01, C02 y C03 en las tres versiones), 5.000 ventas generadas, arreglo vacío, una venta, clientes todos distintos, un cliente con muchas compras y el caso `[A, B, B, A]`.
+
+**Sobre el orden:** en `[A, B, B, A]` la original y el `Map` devuelven `[A, B]` (orden de la primera aparición) y el `Set` devuelve `[B, A]` (orden de la segunda compra). Por eso los resultados se comparan ordenados (`sort`) sobre una copia.
+
+## Tabla comparativa de tiempos
+
+`node src/medir-recurrentes.js`:
+
+| n | Original (ms) | Set (ms) | Map (ms) | Clientes distintos | Recurrentes |
+|---|---|---|---|---|---|
+| 1.000 | 4,072 | 0,066 | 0,059 | 315 | 270 |
+| 10.000 | 349,427 | 0,537 | 0,429 | 3.148 | 2.664 |
+| 100.000 | no se ejecuta | 12,059 | 6,639 | 31.661 | 26.700 |
+| 1.000.000 | no se ejecuta | 218,871 | 151,225 | 316.847 | 267.005 |
+
+Cómo leerla:
+
+Cómo leerla:
+
+- **Original:** al pasar de 1.000 a 10.000 ventas (n x10) el tiempo se multiplicó por unas 86 (4,07 ms -> 349,43 ms), cerca del x100 que corresponde a O(n²). Por eso solo se mide hasta 10.000: con 100.000 ya había tardado 53,9 s (MiniReto 6).
+- **Set y Map:** al multiplicar n por 10, el tiempo se multiplica entre 7 y 23 veces (Set: 0,066 -> 0,537 -> 12,059 -> 218,871 ms; Map: 0,059 -> 0,429 -> 6,639 -> 151,225 ms), muy lejos del x100 de la original. Las razones no son exactamente 10 por el calentamiento de Node y porque las tablas grandes aprovechan peor la memoria caché, pero el crecimiento es lineal y no cuadrático. Incluso con 1.000.000 de ventas tardan unos 150 a 220 ms, mucho menos que la original con solo 10.000.
+- **Requisito del marketplace:** con 100.000 ventas, `Set` tardó 12,06 ms y `Map` 6,64 ms en la tabla (promedio de varias ejecuciones). En la prueba con `console.time` de una sola ejecución, sin calentamiento, `Set` tardó 63,98 ms y `Map` 6,9 ms. Todas están muy por debajo del segundo exigido. La original tardaba 53,9 s.
+
+## Intercambio entre tiempo y memoria
+
+La optimización **gasta memoria para ahorrar trabajo**:
+
+| Versión | Tiempo | Memoria extra |
+|---|---|---|
+| Original | O(n²) | O(r), solo la lista de recurrentes |
+| Set | O(n) | O(c + r): un Set con todos los clientes distintos y otro con los recurrentes |
+| Map | O(n + c) | O(c): una entrada por cliente distinto |
+
+- c = clientes distintos y r = clientes recurrentes, con r ≤ c ≤ n. La tabla de tiempos muestra ambos valores: con los datos generados, c es cerca de n/3 y la mayoría de esos clientes son recurrentes.
+- En el **peor caso** (cada venta de un cliente distinto) c = n, y la memoria extra es O(n).
+- **Vale la pena:** a cambio de guardar unos pocos miles de claves por cada 100.000 ventas, el reporte pasa de casi un minuto a decenas de milisegundos. Es el mismo principio de una agenda o un índice: se paga espacio por no volver a buscar.
+- El costo de memoria de `Map` es menor que el de `Set` (una estructura en lugar de dos) y además guarda **cuántas** compras hizo cada cliente, información que se puede reutilizar en otros análisis.
+
+## Decisión
+
+Para el motor queda **`clientesRecurrentesMap`**:
+
+- Respeta el orden de la versión original (primera aparición del cliente).
+- Usa una sola estructura.
+- `comprasPorCliente` se puede reutilizar en otros reportes.
+
+`clientesRecurrentes` (la original) se conserva solo como referencia para verificar y para la comparación de tiempos.
