@@ -151,6 +151,31 @@ function clientesRecurrentes(ventas) {
   return recurrentes;
 }
 
+// ===== MiniReto 7: dos formas de calcular el total de una ciudad =====
+
+// Cadena de métodos: map -> filter -> map -> reduce.
+// 4 recorridos y 3 arreglos nuevos (el primero copia cada venta).
+function totalCiudadCadena(ventas, ciudad) {
+  const objetivo = normalizarCiudad(ciudad);
+  return ventas
+    .map((venta) => ({ ...venta, ciudad: normalizarCiudad(venta.ciudad) }))
+    .filter((venta) => venta.ciudad === objetivo)
+    .map((venta) => valorVenta(venta))
+    .reduce((acum, valor) => acum + valor, 0);
+}
+
+// Un solo ciclo, sin arreglos intermedios: solo un acumulador.
+function totalCiudadUnaPasada(ventas, ciudad) {
+  const objetivo = normalizarCiudad(ciudad);
+  let total = 0;
+  for (const venta of ventas) {
+    if (normalizarCiudad(venta.ciudad) === objetivo) {
+      total += valorVenta(venta);
+    }
+  }
+  return total;
+}
+
 module.exports = {
   valorVenta,
   totalVendido,
@@ -167,4 +192,6 @@ module.exports = {
   ventasDelDia,
   ventasDelDia,
   clientesRecurrentes,
+  totalCiudadCadena,
+  totalCiudadUnaPasada,
 };

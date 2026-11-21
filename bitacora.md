@@ -386,3 +386,91 @@ El reporte se pone lento porque, para saber qué clientes repiten, el programa t
 Pero el trabajo no crece de forma proporcional: **si el historial se duplica, el trabajo se multiplica por cuatro**. En nuestras pruebas, 16.000 ventas tardaron casi un segundo, 100.000 ventas tardaron cerca de 54 segundos y, para un millón de ventas, se estima alrededor de una hora y media. Un historial anual puede estar en esa zona, y por eso el reporte "se quedó pensando".
 
 No es un problema del computador, sino de la forma en que se hace la comparación. Se puede corregir con un método que recorra el historial una sola vez: así el tiempo crecería en proporción al tamaño de los datos, y no al cuadrado.
+
+---
+
+# MiniReto 7: Tiempo, memoria y cadenas de métodos
+
+## Las dos versiones
+
+- `totalCiudadCadena`: `map` (normaliza y copia cada venta) -> `filter` (deja la ciudad pedida) -> `map` (calcula el valor) -> `reduce` (suma).
+- `totalCiudadUnaPasada`: un solo `for...of` con un acumulador.
+
+**Verificación:** `node src/comparar-ciudad.js` mostró `OK` en los 8 casos probados: muestra del Día 1 (356.000 para "Medellín", que incluye "medellín "; 276.000 para "  BOGOTÁ "; 0 para "Cartagena"), arreglo vacío (0) y 10.000 ventas generadas con las cuatro ciudades. Además, las dos versiones coinciden con `ventasPorCiudad` del MiniReto 2.
+
+## Recorridos y arreglos nuevos
+
+n = número de ventas; m = ventas de la ciudad pedida (m ≤ n; con 4 ciudades, m ≈ n/4).
+
+| Paso de la cadena | Recorre | Arreglo nuevo |
+|---|---|---|
+| `map` (normaliza) | n elementos | sí, de n elementos (y n objetos copiados con `...venta`) |
+| `filter` | n elementos | sí, de m elementos |
+| `map` (valor) | m elementos | sí, de m elementos |
+| `reduce` | m elementos | no, devuelve un número |
+
+| Versión | Recorridos | Arreglos nuevos | Tiempo | Espacio extra |
+|---|---|---|---|---|
+| `totalCiudadCadena` | 4 (los dos últimos sobre m ≤ n elementos) | 3 | O(n) | O(n) |
+| `totalCiudadUnaPasada` | 1 | 0 | O(n) | O(1) |
+
+Con n = 10.000 y "Medellín", los arreglos intermedios de la cadena tuvieron 10.000, 2.553 y 2.553 elementos.
+
+## Por qué O(4n) se simplifica a O(n)
+
+La notación Big O describe **cómo crece** el trabajo cuando crece n, no cuánto tarda exactamente. Se aplican dos reglas de simplificación:
+
+1. Se eliminan las **constantes multiplicativas**: 4n -> n.
+2. Se conserva el **término dominante** y se descartan los de menor orden.
+
+La cadena hace n + n + m + m pasos, que como máximo son 4n (cuando todas las ventas son de la ciudad pedida). En mi medición fueron 10.000 + 10.000 + 2.553 + 2.553 = 25.106 pasos (≈ 2,5n). La versión de una pasada hace n.
+
+Si n se multiplica por 10, ambas se multiplican por 10: con n = 10.000 la cadena hace como máximo 40.000 pasos y la de una pasada 10.000; con n = 100.000 hacen como máximo 400.000 y 100.000. La relación entre las dos siempre es una constante (como máximo 4) que no depende de n. Por eso las dos crecen igual: **O(n)**.
+
+Que sean del mismo orden no significa que tarden lo mismo. Con n = 1.000.000:
+
+| Versión | Tiempo medido |
+|---|---|
+| `totalCiudadCadena` | 221,75 ms |
+| `totalCiudadUnaPasada` | 85,59 ms |
+
+La cadena fue unas 2,6 veces más lenta. Esa diferencia es la constante oculta: copiar un millón de objetos, crear tres arreglos y hacer más recorridos. El crecimiento es el mismo, pero la cadena cuesta más en cada paso.
+
+## Complejidad espacial de todas las funciones del motor
+
+Se cuenta solo la memoria **extra** (el arreglo de entrada no cuenta). g = número de grupos distintos (ciudades o productos), r = clientes recurrentes, m = ventas que cumplen un filtro.
+
+| Función | Espacio | Justificación |
+|---|---|---|
+| `valorVenta` | O(1) | Solo multiplica dos números. |
+| `totalVendido` | O(1) | Un acumulador. |
+| `unidadesVendidas` | O(1) | Un acumulador. |
+| `ventaMayor` | O(1) | Guarda una referencia a una venta existente, no una copia. |
+| `ticketPromedio` | O(1) | Dos números (total y contador). |
+| `ventasPorCiudad` | O(1) | Un acumulador y el texto normalizado. |
+| `totalVendidoM` | O(n) | `map` crea un arreglo con un valor por venta. |
+| `unidadesVendidasM` | O(1) | Solo `reduce`: no crea arreglos. |
+| `ventasPorCiudadM` | O(n) en el peor caso | `filter` crea un arreglo de m ventas (m ≤ n). |
+| `totalPorCiudad` | O(g) | El objeto tiene una clave por ciudad distinta, no por venta. |
+| `unidadesPorProducto` | O(g) | El objeto tiene una clave por producto distinto. |
+| `topProductosPorValor` | O(g) | Crea el diccionario (g claves), el arreglo de `Object.entries` (g), su copia `[...ranking]` (g) y el recorte con `slice` (k). Todos dependen de g, no de n. |
+| `ventasDelDia` | O(m) ≤ O(n) | `filter` crea un arreglo con las ventas del día (referencias, no copias de los objetos). |
+| `clientesRecurrentes` | O(r) ≤ O(n) | `recurrentes` puede llegar a tener n/2 clientes. |
+| `totalCiudadCadena` | O(n) | Tres arreglos nuevos y n objetos copiados. |
+| `totalCiudadUnaPasada` | O(1) | Solo un acumulador. |
+| `generarVentas` | O(n) | Su resultado es el arreglo de n ventas, así que no se puede evitar. |
+| `totalVendidoContado`, `ventaMayorContado`, `primeraVenta` | O(1) | Solo el contador. |
+| `totalPorCiudadContado` | O(g) | Un objeto con una clave por ciudad. |
+
+**Sobre `totalPorCiudad` y `topProductosPorValor`:** su memoria crece con el número de **grupos**, no con el número de ventas. En este negocio hay 4 ciudades y 5 productos, así que con 100.000 o con 1.000.000 de ventas la memoria extra es la misma: en la práctica es constante. Formalmente son O(g), porque si cada venta tuviera una ciudad o un producto distinto, g llegaría a n y serían O(n).
+
+En `topProductosPorValor` hay además un detalle: la copia `[...ranking]` duplica el arreglo antes de ordenarlo. Es un costo pequeño (g) que se paga para no alterar el original, y sigue siendo O(g).
+
+## Decisión: qué versión queda en el motor
+
+**Queda `totalCiudadUnaPasada`.**
+
+- **Recursos:** hace un solo recorrido y no crea arreglos, así que su memoria extra es constante. La cadena, con 1.000.000 de ventas, copia 1.000.000 de objetos y crea tres arreglos, y en un servidor con memoria limitada eso se paga. Además, en mi medición fue unas 2,6 veces más rápida.
+- **Legibilidad:** la cadena se lee como una receta (normaliza, filtra, calcula, suma) y para datos pequeños es razonable. Pero la versión con ciclo tiene solo 6 líneas y se entiende igual de bien, así que la ventaja de legibilidad es pequeña y no compensa el costo en recursos.
+- **Observación:** `totalCiudadUnaPasada` hace lo mismo que `ventasPorCiudad` (MiniReto 2); la diferencia es que usa `normalizarCiudad` para comparar.
+- La cadena se conserva en `analitica.js` como referencia para esta comparación y no se usa en el reporte.

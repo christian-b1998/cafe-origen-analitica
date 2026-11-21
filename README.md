@@ -38,6 +38,8 @@ No hay dependencias que instalar.
 - `bitacora.md`: diccionario de datos, casos borde, pseudocódigo, trazas y registro de depuración.
 - `src/generador.js`: genera historiales de ventas de cualquier tamaño.
 - `src/instrumentadas.js` y `src/medir.js`: cuentan operaciones de las funciones y muestran cómo crece el trabajo con n.
+- `src/medir-tiempos.js`: mide el tiempo de clientesRecurrentes con distintos tamaños.
+- `src/comparar-ciudad.js`: compara la cadena de métodos con el recorrido único para calcular el total de una ciudad (MiniReto 7).
 
 ## Otros scripts
 
