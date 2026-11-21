@@ -474,3 +474,39 @@ En `topProductosPorValor` hay además un detalle: la copia `[...ranking]` duplic
 - **Legibilidad:** la cadena se lee como una receta (normaliza, filtra, calcula, suma) y para datos pequeños es razonable. Pero la versión con ciclo tiene solo 6 líneas y se entiende igual de bien, así que la ventaja de legibilidad es pequeña y no compensa el costo en recursos.
 - **Observación:** `totalCiudadUnaPasada` hace lo mismo que `ventasPorCiudad` (MiniReto 2); la diferencia es que usa `normalizarCiudad` para comparar.
 - La cadena se conserva en `analitica.js` como referencia para esta comparación y no se usa en el reporte.
+
+---
+
+# MiniReto 8: Analítica v0.2, el informe de rendimiento
+
+## Qué se hizo
+
+- Se creó `RENDIMIENTO.md` con la clasificación de todas las funciones del motor (tiempo, espacio, justificación y operaciones con 10.000 ventas), la proyección para 1.000.000 de ventas, los riesgos ordenados y el plan de optimización.
+- Se creó `src/medir-todo.js`, que mide el tiempo de cada función con 10.000 y con 1.000.000 de ventas y imprime la tabla en Markdown.
+
+## Decisiones
+
+- **Operaciones y tiempos por separado:** la tabla de clasificación usa operaciones, que son iguales en cualquier computador, y los tiempos van en una tabla aparte porque dependen del equipo.
+- **Proyección de `clientesRecurrentes`:** se usó la medición real de 100.000 ventas (53,9 s) y no la de 16.000, porque la estimación hecha con 16.000 quedó corta (34,9 s estimados frente a 53,9 s reales). El resultado es ≈ 1,5 horas para 1.000.000.
+- **Criterio de riesgo:** primero el crecimiento del tiempo, luego la memoria, luego la proyección medida y, por último, los peores casos ocultos. Por eso `clientesRecurrentes` es el mayor riesgo y `totalCiudadCadena` queda segunda.
+- **Plan de optimización:** el trabajo que se repite es buscar a cada cliente entre todas las ventas, y la información que se guardaría es un diccionario cliente -> compras. No se implementa todavía (MiniReto 9).
+
+## Revisión de un compañero
+
+Se le pidió a un compañero que revisara `RENDIMIENTO.md`. Preguntas que se le hicieron:
+
+1. ¿Se entiende la tabla sin abrir el código?
+2. ¿La justificación de cada complejidad se apoya en el código y no solo en el resultado?
+3. ¿La proyección de 1.000.000 está calculada y no supuesta?
+4. ¿El plan de optimización explica qué se repite y qué se guardaría?
+
+**Observación recibida:** (escribe aquí lo que dijo tu compañero, con sus palabras)
+
+**Mi respuesta:** (qué decidiste y qué cambiaste en el informe, o por qué no lo cambiaste)
+
+## Conclusiones del Día 2
+
+- Contar operaciones permite ver el crecimiento sin depender del computador: las funciones lineales se multiplican por 10 cuando n se multiplica por 10, y la constante no crece.
+- Un ciclo dentro de otro es lo que vuelve lento un reporte: `clientesRecurrentes` pasa de 66 comparaciones con 12 ventas a casi 50 millones con 10.000.
+- Dos funciones del mismo orden (O(n)) pueden costar distinto: la cadena de métodos fue unas 2,6 veces más lenta que el recorrido único y usa memoria proporcional a n.
+- El siguiente paso es optimizar `clientesRecurrentes` a O(n) (MiniReto 9).
