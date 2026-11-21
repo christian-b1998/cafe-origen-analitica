@@ -126,6 +126,15 @@ function topProductosPorValor(ventas, k) {
   return [...ranking].sort((a, b) => b.valor - a.valor).slice(0, k);
 }
 
+// ===== MiniReto 4: ventas de un día =====
+
+// Devuelve las ventas cuya fecha (AAAA-MM-DD) coincide con la pedida.
+// Fecha sin ventas o arreglo vacío -> [] (nunca null ni error).
+function ventasDelDia(ventas, fecha) {
+  const objetivo = fecha.trim();
+  return ventas.filter((venta) => venta.fecha === objetivo);
+}
+
 module.exports = {
   valorVenta,
   totalVendido,
@@ -139,4 +148,5 @@ module.exports = {
   totalPorCiudad,
   unidadesPorProducto,
   topProductosPorValor,
+  ventasDelDia,
 };

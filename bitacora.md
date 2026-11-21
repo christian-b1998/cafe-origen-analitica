@@ -187,3 +187,53 @@ Resultados con la muestra completa: totalVendido 985000, unidadesVendidas 21, ve
 - `unidadesPorProducto`: Huila 7, Nariño 6, Sierra 5, Prensa francesa 2, Molino manual 1 (suma 21).
 - `topProductosPorValor(ventas, 3)`: Huila (294000), Sierra (225000), Prensa francesa (190000), de mayor a menor.
 - `ventas` conserva su orden original después de llamar a las funciones (se comparó una copia en texto antes y después con `JSON.stringify`).
+
+---
+
+# MiniReto 4: Analítica v0.1 y depuración
+
+## Decisiones del reporte
+
+- `src/reporte.js` solo **integra**: importa los datos y las funciones de `analitica.js` y las muestra con formato. No recalcula nada por su cuenta (salvo contar ventas válidas para el resumen).
+- Valores en pesos con `toLocaleString("es-CO")` (por ejemplo `$ 985.000`). El formato se aplica solo al mostrar; los cálculos usan números.
+- El ticket promedio se redondea con `Math.round` solo al mostrarlo (89.545,45 -> `$ 89.545`).
+- `ventasDelDia(ventas, fecha)` devuelve el **arreglo** de ventas de esa fecha, y `[]` si no hay ninguna (nunca `null` ni error). Así todas las funciones anteriores se reutilizan sobre el resultado.
+- **Día sin ventas:** el reporte muestra el mensaje "Sin ventas registradas este día." y los valores en cero.
+- El reporte incluye un control: la suma de las ciudades debe ser igual al total vendido.
+
+## Registro de depuración
+
+Los dos errores se reproducen con `node src/depurar.js`, que contiene una versión "ingenua" (imitando la versión preliminar del compañero) y la compara con la versión corregida.
+
+### Error 1: "Bogotá aparecía dos veces"
+
+| Campo | Detalle |
+|---|---|
+| **Síntoma** | En el total por ciudad aparecen dos grupos para la misma ciudad. |
+| **Entrada que lo produce** | La misma ciudad escrita de dos formas, por ejemplo `"Bogotá"` y `"Bogotá "` (espacio al final). Con la muestra original ocurre igual con `"Medellín"` y `"medellín "` (id 5). |
+| **Hipótesis** | (a) El agrupamiento usa el texto de la ciudad tal cual, sin normalizar. (b) Hay un error en la suma. Descarté (b) porque la suma total sí era correcta; solo estaba repartida en dos grupos. |
+| **Prueba realizada** | Se agrupó con la versión ingenua y se imprimió `Object.keys(...)`. Salieron `'Medellín'`, `'medellín '` y, al agregar un registro con `"Bogotá "`, también `'Bogotá'` y `'Bogotá '` por separado. Se repitió con `totalPorCiudad` y salieron exactamente 4 claves. |
+| **Causa** | Las claves de un objeto distinguen mayúsculas, minúsculas y espacios: `"Bogotá"` y `"Bogotá "` son claves distintas. |
+| **Corrección** | `totalPorCiudad` normaliza el nombre con `normalizarCiudad` (`trim()`, `toLowerCase()` y primera letra en mayúscula) antes de usarlo como clave. |
+| **Evidencia** | Con la muestra: 4 ciudades (Medellín, Bogotá, Cali, Pereira). Con el registro extra `"Bogotá "`: sigue habiendo 4 y Bogotá suma 396000 (276000 + 120000). |
+
+**Limitación conocida:** la normalización no unifica tildes. `"Bogota"` (sin tilde) seguiría siendo un grupo aparte de `"Bogotá"`. La muestra no trae ese caso; queda como mejora futura.
+
+### Error 2: "El ticket promedio daba NaN en un día sin ventas"
+
+| Campo | Detalle |
+|---|---|
+| **Síntoma** | Al filtrar un día sin ventas, el ticket promedio muestra `NaN`. |
+| **Entrada que lo produce** | `ventasDelDia(ventas, "2026-09-07")`, que devuelve `[]`, y luego `ticketPromedio` sobre ese arreglo vacío. |
+| **Hipótesis** | (a) La función divide entre la cantidad de ventas sin revisar si es 0. (b) El filtro por día devuelve `undefined` en vez de un arreglo. Descarté (b): el filtro devuelve `[]`. |
+| **Prueba realizada** | Se imprimió el arreglo del día (`[]`, longitud 0) y se calculó `total / datos.length` en la versión ingenua: `0 / 0` da `NaN`. Se llamó a `ticketPromedio` con el mismo arreglo vacío y devolvió `0`. |
+| **Causa** | En JavaScript `0 / 0` es `NaN`. La versión preliminar dividía sin comprobar que hubiera ventas. |
+| **Corrección** | `ticketPromedio` cuenta las ventas válidas y, si son 0, devuelve 0 antes de dividir. El reporte además muestra el mensaje "Sin ventas registradas este día.". |
+| **Evidencia** | `ticketPromedio([])` es `0` y el reporte del 2026-09-07 no muestra `NaN`. |
+
+## Verificación final de v0.1
+
+- `node src/reporte.js` muestra las cinco secciones (resumen general, ciudades, productos, top 3 y resumen por día) sin `NaN`, `undefined` ni grupos duplicados.
+- El control "suma de ciudades = total vendido" sale `OK` (985.000).
+- Resumen del 2026-09-03 verificado a mano: ids 5 y 6 = 135.000 + 52.000 = 187.000 en 5 unidades, ticket 93.500.
+- `node src/verificar.js` sigue mostrando `OK` en los 12 pares.
