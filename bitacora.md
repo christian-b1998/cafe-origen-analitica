@@ -237,3 +237,59 @@ Los dos errores se reproducen con `node src/depurar.js`, que contiene una versi�
 - El control "suma de ciudades = total vendido" sale `OK` (985.000).
 - Resumen del 2026-09-03 verificado a mano: ids 5 y 6 = 135.000 + 52.000 = 187.000 en 5 unidades, ticket 93.500.
 - `node src/verificar.js` sigue mostrando `OK` en los 12 pares.
+
+---
+
+# MiniReto 5: ¿Cuánto cuesta cada reporte?
+
+## Qué cuenta como operación
+
+Sumo 1 por cada elemento visitado y 1 por cada comparación. En `totalPorCiudad` cuento también la consulta "¿ya existe el grupo?" y asumo que acceder a una clave de un objeto cuesta una sola operación.
+
+## Predicción (escrita antes de medir)
+
+Si n se multiplica por 10:
+
+| Función | Predicción | Razonamiento |
+|---|---|---|
+| `totalVendido` | Operaciones x10 | Un ciclo que visita cada venta una vez. |
+| `ventaMayor` | Operaciones x10 | Un solo ciclo; en cada vuelta hace un número fijo de comparaciones. |
+| `totalPorCiudad` | Operaciones x10 | Un solo ciclo; solo hay 4 ciudades, así que los grupos no crecen con n. |
+| `primeraVenta` | Operaciones x1 (no cambia) | Solo accede a la posición 0, sin recorrer. |
+
+## Resultados medidos
+
+| n | totalVendido | ventaMayor | totalPorCiudad | primeraVenta |
+|---|---|---|---|---|
+| 100 | 100 | 399 | 200 | 1 |
+| 1.000 | 1.000 | 3.999 | 2.000 | 1 |
+| 10.000 | 10.000 | 39.999 | 20.000 | 1 |
+| 100.000 | 100.000 | 399.999 | 200.000 | 1 |
+
+En las tres funciones lineales, cada vez que n se multiplica por 10 las operaciones también se multiplican por 10 (10,02 en `ventaMayor` de 100 a 1.000). En `primeraVenta` el valor es siempre 1. Las versiones instrumentadas dieron el mismo resultado que las originales (`mismoResultado: OK`).
+
+## Predicción vs. resultado
+
+| Función | Predicción | Resultado | ¿Coincide? |
+|---|---|---|---|
+| `totalVendido` | x10 | x10 | Sí |
+| `ventaMayor` | x10 | x10 | Sí |
+| `totalPorCiudad` | x10 | x10 | Sí |
+| `primeraVenta` | x1 | x1 | Sí |
+
+Detalle que no había previsto: `ventaMayor` hace unas 4 operaciones por venta (visita y tres comparaciones), `totalPorCiudad` hace 2 y `totalVendido` hace 1. Por eso los números absolutos son distintos entre funciones, pero el crecimiento es el mismo.
+
+## Clasificación Big O
+
+| Función | Clasificación | Justificación |
+|---|---|---|
+| `totalVendido` | **O(n)** | Un solo `for...of` que visita cada venta una vez: n operaciones exactas. |
+| `ventaMayor` | **O(n)** | Un solo ciclo con un número fijo de comparaciones por vuelta (≈ 4n - 1). La constante 4 no cambia el crecimiento: x10 cuando n es x10. |
+| `totalPorCiudad` | **O(n)** | Un solo ciclo con 2 operaciones por venta (2n). El número de grupos es constante (4 ciudades) y no depende de n. |
+| `primeraVenta` | **O(1)** | Accede a `ventas[0]` sin recorrer nada: siempre 1 operación, con 100 o con 100.000 ventas. |
+
+Ninguna función es O(n²): ninguna tiene un ciclo dentro de otro ciclo sobre las ventas.
+
+## Conclusión
+
+Las constantes (1, 2 o 4 operaciones por venta) no importan para el crecimiento; lo que importa es cuántas veces se recorre el arreglo. Con 100.000 ventas, un reporte que recorre los datos unas pocas veces sigue siendo manejable, pero lo que sí podría dispararse es un ciclo dentro de otro (eso se investiga en el MiniReto 6).

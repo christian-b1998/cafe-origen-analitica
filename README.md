@@ -36,6 +36,8 @@ No hay dependencias que instalar.
 - `src/depurar.js`: reproduce los errores reportados y muestra que están corregidos.
 - `src/probar.js` y `src/probar-agrupaciones.js`: pruebas de las funciones.
 - `bitacora.md`: diccionario de datos, casos borde, pseudocódigo, trazas y registro de depuración.
+- `src/generador.js`: genera historiales de ventas de cualquier tamaño.
+- `src/instrumentadas.js` y `src/medir.js`: cuentan operaciones de las funciones y muestran cómo crece el trabajo con n.
 
 ## Otros scripts
 
