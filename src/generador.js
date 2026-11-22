@@ -41,4 +41,13 @@ function generarVentas(n) {
   return ventas;
 }
 
-module.exports = { generarVentas };
+// Totales diarios al azar (miles de pesos), entre 200 y 800.
+function generarDias(n) {
+  const dias = [];
+  for (let i = 0; i < n; i++) {
+    dias.push(enteroEntre(200, 800));
+  }
+  return dias;
+}
+
+module.exports = { generarVentas, generarDias };

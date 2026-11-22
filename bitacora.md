@@ -745,3 +745,138 @@ Las tres funciones optimizadas son O(n): al multiplicar los datos por 10, el tra
 - **Patrón del complemento:** en lugar de probar todos los pares, preguntar "¿ya vi el que me falta?" convierte un problema O(n²) en uno O(n).
 - **Patrón de frecuencias:** un `Map` contador resuelve "el más frecuente" y "el que aparece una sola vez" en un solo recorrido.
 - **Casos borde:** el desempate, el arreglo vacío y la ausencia de solución se definen y se prueban explícitamente.
+
+---
+
+# MiniReto 11: La mejor racha y el presupuesto exacto
+
+## Mejor semana
+
+**Problema:** dados los totales diarios (miles de pesos), encontrar los 7 días consecutivos con mayor total y el día en que empiezan.
+
+### Fuerza bruta: `mejorSemanaBruta`
+
+Para cada posición de inicio suma los k días del bloque **desde cero**.
+
+- **Tiempo:** O((n - k + 1) · k) ≈ **O(n · k)**. Con k fijo y pequeño (7) parece lineal, pero si k crece el trabajo crece con él: con k = 1.000 hace unas mil sumas por cada posición.
+- **Espacio:** O(1).
+
+### Ventana deslizante: `mejorSemana`
+
+Idea: dos bloques consecutivos comparten k - 1 días. Por eso no hace falta sumar todo otra vez: se suma la primera ventana y, al avanzar un día, se **suma el día que entra y se resta el que sale**.
+
+- **Tiempo:** O(n): k sumas para la primera ventana y n - k desplazamientos de costo constante, en total n pasos.
+- **Espacio:** O(1): solo guarda la suma actual y la mejor.
+
+Devuelve `{ total, inicio }`, donde `inicio` es el índice del primer día (empieza en 0), así que el día de septiembre es `inicio + 1`. **Empate:** gana la primera semana que alcanzó el máximo (se reemplaza solo con `>` estricto).
+
+### Las tres primeras posiciones de la ventana (septiembre, k = 7)
+
+```
+Días:   1    2    3    4    5    6    7    8    9   10 ...
+Valor: 320  410  280  390  510  620  700  300  290  450 ...
+
+Posición 1: [320  410  280  390  510  620  700]  300  290      total = 3.230
+Posición 2:  320 [410  280  390  510  620  700  300]  290      total = 3.230 + 300 - 320 = 3.210
+Posición 3:  320  410 [280  390  510  620  700  300  290]     total = 3.210 + 290 - 410 = 3.090
+```
+
+| Ventana | Entra | Sale | Total |
+|---|---|---|---|
+| Días 1 a 7 | (suma inicial) | | 3.230 |
+| Días 2 a 8 | 300 (día 8) | 320 (día 1) | 3.210 |
+| Días 3 a 9 | 290 (día 9) | 410 (día 2) | 3.090 |
+
+### Resultado de septiembre
+
+**La mejor semana va del día 24 al día 30 de septiembre, con un total de 3.670 (miles de pesos, es decir, $ 3.670.000).** Es la última semana del mes: 440 + 500 + 590 + 650 + 720 + 400 + 370 = 3.670. La versión de fuerza bruta devolvió el mismo resultado.
+
+### Casos borde
+
+| Caso | Resultado | Por qué |
+|---|---|---|
+| k mayor que el número de días | `null` | No cabe ninguna ventana. |
+| k = 0 | `null` | No es una ventana válida. |
+| Arreglo vacío | `null` | No hay días. |
+| k = número de días | Una sola ventana (la suma de todos) | Es el único bloque posible. |
+| Todos los días iguales | La primera semana (`inicio: 0`) | Desempate: gana la primera. |
+
+### Comparación de las dos versiones
+
+Con 100.000 días generados al azar, ambas devolvieron exactamente el mismo `{ total, inicio }` con k = 7, 100 y 1.000. Tiempos medidos con `console.time`:
+
+| k | Fuerza bruta (ms) | Ventana deslizante (ms) | Veces más lenta la bruta |
+|---|---|---|---|
+| 7 | 1,403 | 0,501 | ≈ 2,8 |
+| 100 | 6,926 | 0,222 | ≈ 31 |
+| 1.000 | 66,22 | 0,224 | ≈ 296 |
+
+Con k = 7 la bruta hizo unas 7 sumas por posición y tardó 1,4 ms frente a 0,5 ms de la ventana, una diferencia pequeña. A medida que k crece, el tiempo de la bruta crece con él (6,9 ms con k = 100 y 66,2 ms con k = 1.000, aproximadamente proporcional a k), mientras que el de la ventana se mantiene en torno a 0,2 a 0,5 ms sin importar k, porque siempre hace n pasos. Con k = 1.000 la ventana fue unas 300 veces más rápida. Esto es la diferencia entre O(n · k) y O(n).
+
+Nota: los tiempos de tan pocos milisegundos tienen algo de ruido (por ejemplo, el calentamiento de Node en la primera medición), pero la tendencia es clara.
+
+## Par más cercano al presupuesto
+
+**Problema:** dos productos del catálogo cuya suma sea **la mayor posible sin superar** el presupuesto. Si ningún par cabe, `null`.
+
+**Idea (dos punteros):** se ordenan los productos por precio, de menor a mayor, y se ponen un puntero `izq` en el más barato y un puntero `der` en el más caro. Con los precios ordenados, la suma de los dos extremos dice qué hacer:
+
+- **Si la suma se pasa del presupuesto:** `der--`. Ese producto caro ya se pasa incluso acompañado del más barato que queda, así que no puede estar en ningún par válido con los productos restantes; se descarta.
+- **Si la suma cabe:** se anota si mejora la mejor y `izq++`. Con este `izq`, `der` es el compañero más caro que cabe, así que ningún otro par que use este `izq` puede ser mejor; se prueba un producto más caro a la izquierda para subir la suma.
+- **Si la suma es exactamente el presupuesto:** se devuelve de inmediato (no hay nada más cerca).
+
+El ciclo termina cuando los punteros se cruzan (`izq < der` deja de cumplirse). El `sort` lleva comparador numérico (`a.precio - b.precio`), porque sin él JavaScript ordena como texto. Se ordena una **copia** (`[...catalogo]`) para no alterar el catálogo.
+
+### Catálogo ordenado por precio
+
+| Posición | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| Producto | Filtros de papel | Nariño 250 g | Taza | Huila 500 g | Sierra 500 g | Huila 1 kg | Prensa francesa | Molino manual |
+| Precio | 18.000 | 26.000 | 35.000 | 42.000 | 45.000 | 79.000 | 95.000 | 120.000 |
+
+### Pruebas
+
+| Presupuesto | Resultado | Explicación |
+|---|---|---|
+| 100.000 | Filtros de papel + Origen Huila 1 kg = **97.000** | Es la mayor suma que no pasa de 100.000. |
+| 140.000 | Origen Sierra 500 g + Prensa francesa = **140.000** | Suma exacta. |
+| 40.000 | `null` | El par más barato posible (18.000 + 26.000 = 44.000) ya supera 40.000: sin solución. |
+| 44.000 | Filtros de papel + Origen Nariño 250 g = 44.000 | Justo el par más barato. |
+| 43.999 | `null` | Un peso menos y ya no cabe ningún par. |
+| Catálogo vacío / un solo producto | `null` | Se necesitan dos productos. |
+
+Además se comparó con una solución de fuerza bruta (todos los pares) para presupuestos de 0 a 260.000, de mil en mil: siempre coincide y la suma **nunca supera el presupuesto**.
+
+### Traza de los punteros con presupuesto 100.000
+
+| Paso | izq | der | Suma | Decisión |
+|---|---|---|---|---|
+| 1 | 0 (18.000) | 7 (120.000) | 138.000 | Se pasa de 100.000 -> `der--` (el Molino no cabe con nadie) |
+| 2 | 0 (18.000) | 6 (95.000) | 113.000 | Se pasa -> `der--` (la Prensa tampoco cabe ni con el más barato) |
+| 3 | 0 (18.000) | 5 (79.000) | 97.000 | Cabe y es la mejor hasta ahora -> `izq++` |
+| 4 | 1 (26.000) | 5 (79.000) | 105.000 | Se pasa -> `der--` (el Huila 1 kg ya no cabe con 26.000) |
+| 5 | 1 (26.000) | 4 (45.000) | 71.000 | Cabe pero no mejora 97.000 -> `izq++` |
+| 6 | 2 (35.000) | 4 (45.000) | 80.000 | Cabe, no mejora -> `izq++` |
+| 7 | 3 (42.000) | 4 (45.000) | 87.000 | Cabe, no mejora -> `izq++` |
+
+Después del paso 7, `izq` queda en 4 igual que `der`: los punteros se cruzan y termina. Resultado: **97.000**. Se hicieron 7 pasos con 8 productos, sin probar los 28 pares.
+
+## Clasificación de complejidad
+
+n = número de días o de productos; k = tamaño de la ventana.
+
+| Función | Tiempo | Espacio | Justificación |
+|---|---|---|---|
+| `mejorSemanaBruta` | O(n · k) | O(1) | Ciclo doble: (n - k + 1) posiciones, y en cada una suma k días. |
+| `mejorSemana` | **O(n)** | O(1) | k sumas iniciales más n - k desplazamientos de costo constante: n pasos, sin importar k. |
+| `parMasCercano` | **O(n log n)** | O(n) | Ordenar cuesta O(n log n); el recorrido con dos punteros cuesta O(n), porque en cada paso un puntero se mueve y no retrocede (a lo sumo n pasos). Se simplifica al término dominante: O(n log n). La copia ordenada usa O(n) de memoria. |
+
+**Sobre el ordenamiento:** el recorrido con dos punteros por sí solo es O(n), pero solo funciona si los datos están ordenados. Si el catálogo ya estuviera ordenado (y se mantuviera así), el costo baja a O(n). Como aquí se ordena en cada llamada, el costo total es O(n log n).
+
+**Comparación con el MiniReto 10:** `comboRegaloMap` busca una suma **exacta** en O(n) usando un `Map` (sin ordenar). Para "la más cercana sin pasarse" el `Map` ya no alcanza, porque no sabe qué precios están cerca; por eso se ordena y se usan dos punteros.
+
+## Conclusiones
+
+- **Ventana deslizante:** cuando los bloques consecutivos comparten casi todos sus elementos, se actualiza la respuesta en lugar de recalcularla: O(n · k) pasa a O(n).
+- **Dos punteros:** con los datos ordenados, cada comparación permite descartar un extremo, y no hace falta probar todos los pares (O(n²)).
+- **Casos borde** (k mayor que los días, presupuesto insuficiente, arreglos vacíos) devuelven `null` y no fallan.

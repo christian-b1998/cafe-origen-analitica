@@ -286,6 +286,74 @@ function primerClienteUnico(ventas) {
   return null;
 }
 
+// ===== MiniReto 11: ventana deslizante y dos punteros =====
+
+// Fuerza bruta: suma cada bloque de k días desde cero.
+// Tiempo O(n * k), espacio O(1).
+// Devuelve { total, inicio } (inicio = índice del primer día, desde 0) o null.
+// Empate: gana la primera semana que alcanzó el máximo.
+function mejorSemanaBruta(dias, k) {
+  if (k <= 0 || k > dias.length) {
+    return null;
+  }
+  let mejor = null;
+  for (let i = 0; i + k <= dias.length; i++) {
+    let suma = 0;
+    for (let j = i; j < i + k; j++) {
+      suma += dias[j];
+    }
+    if (mejor === null || suma > mejor.total) {
+      mejor = { total: suma, inicio: i };
+    }
+  }
+  return mejor;
+}
+
+// Ventana deslizante: se suma la primera ventana y luego, al avanzar un día,
+// entra un día y sale otro. Tiempo O(n), espacio O(1).
+function mejorSemana(dias, k) {
+  if (k <= 0 || k > dias.length) {
+    return null;
+  }
+  let suma = 0;
+  for (let i = 0; i < k; i++) {
+    suma += dias[i];
+  }
+  let mejor = { total: suma, inicio: 0 };
+  for (let i = k; i < dias.length; i++) {
+    suma += dias[i] - dias[i - k]; // entra dias[i], sale dias[i - k]
+    if (suma > mejor.total) {
+      mejor = { total: suma, inicio: i - k + 1 };
+    }
+  }
+  return mejor;
+}
+
+// Dos productos cuya suma sea la mayor posible sin superar el presupuesto.
+// Ordena una COPIA del catálogo por precio (O(n log n)) y recorre con dos punteros (O(n)).
+// Devuelve { productos: [barato, caro], suma } o null si ningún par cabe en el presupuesto.
+function parMasCercano(catalogo, presupuesto) {
+  const ordenado = [...catalogo].sort((a, b) => a.precio - b.precio);
+  let izq = 0;
+  let der = ordenado.length - 1;
+  let mejor = null;
+  while (izq < der) {
+    const suma = ordenado[izq].precio + ordenado[der].precio;
+    if (suma > presupuesto) {
+      der--; // se pasa incluso con el más barato disponible: el más caro no sirve
+    } else {
+      if (mejor === null || suma > mejor.suma) {
+        mejor = { productos: [ordenado[izq], ordenado[der]], suma };
+      }
+      if (suma === presupuesto) {
+        return mejor; // exacto: no hay nada más cerca
+      }
+      izq++; // cabe: se intenta subir la suma con un producto más caro a la izquierda
+    }
+  }
+  return mejor;
+}
+
 module.exports = {
   valorVenta,
   totalVendido,
@@ -311,4 +379,7 @@ module.exports = {
   comboRegaloMap,
   productoEstrellaPorCiudad,
   primerClienteUnico,
+  mejorSemanaBruta,
+  mejorSemana,
+  parMasCercano,
 };

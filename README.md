@@ -49,6 +49,7 @@ No hay dependencias que instalar.
 - `src/medir-recurrentes.js`: compara el tiempo de la versión original, la de Set y la de Map.
 - `src/catalogo.js`: catálogo de productos con sus precios.
 - `src/probar-combos.js`: pruebas del combo de regalo, el producto estrella por ciudad y el primer cliente único.
+- `src/probar-ventana.js`: pruebas de la mejor semana (ventana deslizante) y del par más cercano al presupuesto (dos punteros).
 
 ## Otros scripts
 
