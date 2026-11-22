@@ -47,6 +47,8 @@ No hay dependencias que instalar.
 - `src/probar-recurrentes.js`: prueba de `clientesRecurrentes` con los 12 datos del Día 1.
 - `src/verificar-recurrentes.js`: comprueba que las tres versiones de clientes recurrentes dan los mismos clientes.
 - `src/medir-recurrentes.js`: compara el tiempo de la versión original, la de Set y la de Map.
+- `src/catalogo.js`: catálogo de productos con sus precios.
+- `src/probar-combos.js`: pruebas del combo de regalo, el producto estrella por ciudad y el primer cliente único.
 
 ## Otros scripts
 

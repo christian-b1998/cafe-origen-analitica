@@ -628,3 +628,120 @@ Para el motor queda **`clientesRecurrentesMap`**:
 - `comprasPorCliente` se puede reutilizar en otros reportes.
 
 `clientesRecurrentes` (la original) se conserva solo como referencia para verificar y para la comparación de tiempos.
+
+---
+
+# MiniReto 10: Combos de regalo y frecuencias
+
+## Catálogo
+
+`src/catalogo.js` representa el catálogo como un arreglo de 8 objetos `{ nombre, precio }` (de 18.000 a 120.000).
+
+## Combo de regalo
+
+**Problema:** dado un valor (la tarjeta regalo), encontrar dos productos **distintos** cuyo precio sume exactamente ese valor. Devuelve los dos productos o `null` si no hay combinación.
+
+### Fuerza bruta: `comboRegalo`
+
+Dos ciclos que prueban todos los pares (i, j) con i < j.
+
+- **Tiempo:** O(n²), con n = productos del catálogo: n(n-1)/2 pares (28 pares con 8 productos).
+- **Espacio:** O(1).
+
+### Optimizada: `comboRegaloMap`
+
+Idea: para el producto actual, el compañero que necesita es el **complemento** (valor - precio). Se guarda en un `Map` precio -> producto lo que ya se vio, y para cada producto se pregunta si su complemento ya apareció. Se pregunta **antes** de guardar, para que un producto no se combine consigo mismo.
+
+- **Tiempo:** O(n): un solo recorrido del catálogo, con una consulta (`has`) y una inserción (`set`) de costo constante por producto.
+- **Espacio:** O(n): el `Map` puede llegar a guardar todos los precios.
+
+### Pruebas
+
+| Entrada | Resultado | Por qué |
+|---|---|---|
+| 87.000 | Origen Huila 500 g + Origen Sierra 500 g | 42.000 + 45.000 |
+| 61.000 | Origen Nariño 250 g + Taza de cerámica | 26.000 + 35.000 |
+| 50.000 | `null` | Ningún par suma 50.000. |
+| 52.000 | `null` | Solo 26.000 + 26.000 daría 52.000, y habría que usar dos veces el mismo producto. |
+| 0 | `null` | Los precios son positivos. |
+| Catálogo vacío | `null` | No hay productos. |
+| Un solo producto | `null` | Se necesitan dos productos distintos. |
+| Dos productos distintos de 40.000, valor 80.000 | Los dos productos | Dos productos con el mismo precio sí pueden formar el combo. |
+
+La versión de fuerza bruta y la optimizada dieron el mismo resultado en todos los casos. Si hubiera varias combinaciones posibles, cada versión podría devolver un par distinto (se devuelve la primera que encuentra), y ambos serían válidos.
+
+### Traza de `comboRegaloMap` con 87.000
+
+| Paso | Producto | Precio | Complemento (87.000 - precio) | ¿Está en el Map? | Map antes de guardar |
+|---|---|---|---|---|---|
+| 1 | Origen Nariño 250 g | 26.000 | 61.000 | No | (vacío) |
+| 2 | Origen Huila 500 g | 42.000 | 45.000 | No | 26.000 |
+| 3 | Origen Sierra 500 g | 45.000 | 42.000 | **Sí** (Origen Huila 500 g) | 26.000, 42.000 |
+
+En el paso 3 devuelve `[Origen Huila 500 g, Origen Sierra 500 g]`. Se detuvo con 3 de los 8 productos recorridos y sin probar ningún par.
+
+## Producto estrella por ciudad: `productoEstrellaPorCiudad`
+
+**Idea (conteo de frecuencias):** un `Map` externo ciudad -> `Map` interno producto -> veces. Un primer recorrido llena los conteos y después se elige el más frecuente de cada ciudad.
+
+**Decisiones:**
+
+- **"Más veces" = apariciones:** se cuentan los registros de venta en que aparece el producto, no las unidades vendidas.
+- **Normalización de ciudad:** se usa `normalizarCiudad`, así `"medellín "` (id 5) cuenta como Medellín. Sin eso saldría una quinta ciudad.
+- **Regla de desempate:** gana el producto que apareció primero en las ventas de esa ciudad. Se logra porque un `Map` conserva el orden de inserción y se reemplaza al mejor solo si el nuevo es estrictamente mayor (`>`).
+- **Venta con cantidad 0 (id 8):** cuenta como una aparición, igual que en el MiniReto 9. Con los datos del Día 1 no cambia el resultado: en Cali hay un empate y gana el mismo producto aunque se excluyera.
+- **Arreglo vacío:** devuelve `{}`.
+
+**Resultado con los datos del Día 1:**
+
+| Ciudad | Producto estrella | Veces | Observación |
+|---|---|---|---|
+| Medellín | Origen Huila 500 g | 2 | ids 1 y 4; Sierra y Prensa tienen 1 |
+| Bogotá | Origen Nariño 250 g | 3 | ids 2, 6 y 12 |
+| Cali | Prensa francesa | 1 | Empate de tres productos con 1; gana la primera en aparecer (id 3) |
+| Pereira | Origen Huila 500 g | 1 | Un solo registro |
+
+Comprobación del desempate: con las ventas `B, A, A, B` en una ciudad, el resultado es `B`. Con 5.000 ventas generadas devuelve exactamente 4 ciudades y el producto de cada una tiene el conteo máximo, verificado con un conteo independiente.
+
+## Primer cliente único: `primerClienteUnico`
+
+**Idea (dos recorridos y un Map):**
+
+1. Primer recorrido: contar las compras de cada cliente en un `Map` (`comprasPorCliente`, del MiniReto 9).
+2. Segundo recorrido, en el orden original de las ventas: devolver el primer cliente cuyo conteo es 1.
+
+Por eso hace falta el segundo recorrido: el `Map` ya sabe cuántas compras hizo cada uno, pero el "primero" lo decide el orden de las ventas.
+
+**Traza con los datos del Día 1:**
+
+| Cliente | Compras | Cliente | Compras |
+|---|---|---|---|
+| C01 | 3 | C05 | 1 |
+| C02 | 2 | C06 | 1 |
+| C03 | 2 | C07 | 1 |
+| C04 | 1 | C08 | 1 |
+
+Segundo recorrido: id 1 (C01, 3), id 2 (C02, 2), id 3 (C03, 2), id 4 (C01, 3) y id 5 (C04, **1**). Devuelve **C04**. C05, C06, C07 y C08 también compraron una sola vez, pero aparecen después en las ventas.
+
+**Casos borde:** arreglo vacío -> `null`; todos los clientes repetidos (`[A, A]`) -> `null`; un solo cliente (`[A]`) -> `A`; `[A, A, B, C, C]` -> `B`. Con 2.000 ventas generadas coincide con una solución de fuerza bruta.
+
+## Clasificación de complejidad
+
+n = tamaño de la entrada (productos del catálogo o ventas); c = clientes distintos; g = parejas (ciudad, producto) distintas, con g ≤ n.
+
+| Función | Tiempo | Espacio | Justificación |
+|---|---|---|---|
+| `comboRegalo` (fuerza bruta) | O(n²) | O(1) | Ciclo doble sobre el catálogo: n(n-1)/2 pares. |
+| `comboRegaloMap` | **O(n)** | O(n) | Un solo recorrido del catálogo; `has` y `set` en el `Map` cuestan lo mismo sin importar el tamaño del catálogo. |
+| `productoEstrellaPorCiudad` | **O(n)** | O(g) | Un recorrido de las n ventas con consultas y actualizaciones de `Map` de costo constante, más un recorrido de las g entradas de los conteos (g ≤ n). En este negocio g ≤ 4 ciudades × 5 productos = 20, así que en la práctica la memoria es constante. |
+| `primerClienteUnico` | **O(n)** | O(c) | Dos recorridos (2n pasos, que se simplifica a n); el `Map` guarda un conteo por cliente distinto (c ≤ n). |
+
+Las tres funciones optimizadas son O(n): al multiplicar los datos por 10, el trabajo se multiplica por 10. Con 100.000 ventas, `productoEstrellaPorCiudad` y `primerClienteUnico` tardaron decenas de milisegundos (`console.time`), muy por debajo de un segundo.
+
+**Intercambio tiempo/memoria:** `comboRegaloMap` pasa de O(n²) a O(n) gastando memoria O(n) en el `Map`. Es el mismo principio del MiniReto 9: se guarda lo ya visto para no volver a buscarlo.
+
+## Conclusiones
+
+- **Patrón del complemento:** en lugar de probar todos los pares, preguntar "¿ya vi el que me falta?" convierte un problema O(n²) en uno O(n).
+- **Patrón de frecuencias:** un `Map` contador resuelve "el más frecuente" y "el que aparece una sola vez" en un solo recorrido.
+- **Casos borde:** el desempate, el arreglo vacío y la ausencia de solución se definen y se prueban explícitamente.

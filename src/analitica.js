@@ -213,6 +213,79 @@ function clientesRecurrentesMap(ventas) {
   return recurrentes;
 }
 
+// ===== MiniReto 10: combos de regalo y frecuencias =====
+
+// Fuerza bruta: prueba todos los pares (i, j) con i < j.
+// Tiempo O(n²), espacio O(1). Devuelve [productoA, productoB] o null.
+function comboRegalo(catalogo, valor) {
+  for (let i = 0; i < catalogo.length; i++) {
+    for (let j = i + 1; j < catalogo.length; j++) {
+      if (catalogo[i].precio + catalogo[j].precio === valor) {
+        return [catalogo[i], catalogo[j]];
+      }
+    }
+  }
+  return null;
+}
+
+// Optimizada: un Map precio -> producto con los productos ya vistos.
+// Para cada producto se pregunta si ya apareció su complemento (valor - precio).
+// Tiempo O(n), espacio O(n). Devuelve [productoA, productoB] o null.
+function comboRegaloMap(catalogo, valor) {
+  const vistos = new Map();
+  for (const producto of catalogo) {
+    const complemento = valor - producto.precio;
+    if (vistos.has(complemento)) {
+      return [vistos.get(complemento), producto];
+    }
+    vistos.set(producto.precio, producto); // se guarda DESPUÉS de preguntar
+  }
+  return null;
+}
+
+// Producto que más veces aparece en las ventas de cada ciudad.
+// Cuenta apariciones (registros de venta), no unidades.
+// Empate: gana el producto que apareció primero en las ventas de esa ciudad.
+// Devuelve { Ciudad: { producto, veces } }. Arreglo vacío -> {}.
+function productoEstrellaPorCiudad(ventas) {
+  const porCiudad = new Map(); // ciudad -> Map(producto -> veces)
+  for (const venta of ventas) {
+    const ciudad = normalizarCiudad(venta.ciudad);
+    if (!porCiudad.has(ciudad)) {
+      porCiudad.set(ciudad, new Map());
+    }
+    const conteo = porCiudad.get(ciudad);
+    conteo.set(venta.producto, (conteo.get(venta.producto) || 0) + 1);
+  }
+
+  const estrellas = {};
+  for (const [ciudad, conteo] of porCiudad) {
+    let mejor = null;
+    let veces = 0;
+    for (const [producto, apariciones] of conteo) {
+      if (apariciones > veces) { // estricto: en un empate se queda el primero
+        mejor = producto;
+        veces = apariciones;
+      }
+    }
+    estrellas[ciudad] = { producto: mejor, veces };
+  }
+  return estrellas;
+}
+
+// Primer cliente (en orden de las ventas) que aparece una sola vez en todo el historial.
+// Recorrido 1: contar compras por cliente (comprasPorCliente, del MiniReto 9).
+// Recorrido 2: buscar el primero con 1 compra. Ninguno -> null.
+function primerClienteUnico(ventas) {
+  const compras = comprasPorCliente(ventas);
+  for (const venta of ventas) {
+    if (compras.get(venta.cliente) === 1) {
+      return venta.cliente;
+    }
+  }
+  return null;
+}
+
 module.exports = {
   valorVenta,
   totalVendido,
@@ -234,4 +307,8 @@ module.exports = {
   clientesRecurrentesSet,
   comprasPorCliente,
   clientesRecurrentesMap,
+  comboRegalo,
+  comboRegaloMap,
+  productoEstrellaPorCiudad,
+  primerClienteUnico,
 };
