@@ -500,9 +500,25 @@ Se le pidió a un compañero que revisara `RENDIMIENTO.md`. Preguntas que se le 
 3. ¿La proyección de 1.000.000 está calculada y no supuesta?
 4. ¿El plan de optimización explica qué se repite y qué se guardaría?
 
-**Observación recibida:** (escribe aquí lo que dijo tu compañero, con sus palabras)
+**Revisor:** Ramael Gonzalez Florez.
 
-**Mi respuesta:** (qué decidiste y qué cambiaste en el informe, o por qué no lo cambiaste)
+**Lo que me dijo:**
+
+1. En la tabla, `clientesRecurrentes` figura como O(n²), pero por el `includes` en un caso extremo podría llegar a O(n³). Eso lo explico en la sección de riesgos, pero en la tabla no se veía.
+2. Puse `calcularReporte` como O(n), pero dentro se ordenan productos y días, así que eso solo es cierto mientras haya pocos.
+3. Las complejidades de `clientesRecurrentesMap`, `totalCiudadCadena`, `topProductosPorValor`, `mejorSemana` y `parMasCercano` están bien y se explican con lo que hace el código.
+4. Las proyecciones sí salen de mediciones, pero conviene mostrar un ejemplo completo del cálculo y dejar claro que el dato de 1.000.000 para `clientesRecurrentes` es una estimación.
+5. En la tabla usé `c`, `p`, `d` y `k` sin explicarlas, y el plan de optimización decía que no estaba implementado cuando `clientesRecurrentesMap` ya existe.
+
+**Mi respuesta:** tenía razón en casi todo y corregí el informe:
+
+- En la fila de `clientesRecurrentes` agregué que con datos como los generados manda el ciclo doble (O(n²)), pero que en un caso extremo `includes` podría llevarla hacia O(n³).
+- Corregí `calcularReporte`: ahora dice O(n + d log d + p log p), que equivale a O(n) cuando hay pocos días y productos, como en mis pruebas. Acepto que decir solo O(n) no era del todo justo.
+- Definí todas las variables que usa la tabla (n, m, g, r, c, p, d y k).
+- Aclaré en el plan de optimización que se escribió en el MiniReto 8 y se implementó en el 9 con `clientesRecurrentesMap`.
+- Agregué un ejemplo completo del cálculo de la proyección y escribí que el dato de 1.000.000 es una estimación y no una medición.
+
+En el punto 3 no había nada que cambiar.
 
 ## Conclusiones del Día 2
 
@@ -880,3 +896,59 @@ n = número de días o de productos; k = tamaño de la ventana.
 - **Ventana deslizante:** cuando los bloques consecutivos comparten casi todos sus elementos, se actualiza la respuesta en lugar de recalcularla: O(n · k) pasa a O(n).
 - **Dos punteros:** con los datos ordenados, cada comparación permite descartar un extremo, y no hace falta probar todos los pares (O(n²)).
 - **Casos borde** (k mayor que los días, presupuesto insuficiente, arreglos vacíos) devuelven `null` y no fallan.
+
+---
+
+# MiniReto 12: Analítica Café Origen v1.0 (lanzamiento)
+
+## Qué se hizo
+
+- `src/reporte.js` se reescribió con las versiones optimizadas y se le agregaron cuatro secciones nuevas: clientes recurrentes, producto estrella por ciudad, combos de regalo, cliente para el cupón y mejor semana. Se puede ejecutar con los datos reales (`node src/reporte.js`) o con n ventas generadas (`node src/reporte.js 100000`), leyendo el argumento con `process.argv`.
+- El cálculo se separó de la impresión (`calcularReporte`), para poder medir el reporte sin imprimir.
+- `src/comparar-versiones.js` mide el tiempo total del reporte v0.1 y del v1.0 con 10.000 y 100.000 ventas. Los resultados están en `RENDIMIENTO.md`.
+- Se actualizaron `RENDIMIENTO.md` (tabla de complejidades con todas las funciones nuevas, comparación y riesgos de la v1.0) y el `README.md` (documentación del producto).
+
+## Decisiones
+
+- **La comparación incluye tres filas:** la v0.1 como se entregó no tenía clientes recurrentes, así que para mostrar la mejora real se agregó una fila con la función original (O(n²)) dentro del reporte v0.1, que es lo que la gerente vivió.
+- **Mejor semana con los datos reales:** el historial real solo cubre 6 días, no alcanza para una semana de 7. Con los datos reales se usan los totales de septiembre que entregó la gerente; con ventas generadas se calculan desde las ventas (`totalesPorDia`).
+- **Día sin ventas:** se usa `2026-10-01`, porque con datos generados cualquier día de septiembre tendría ventas.
+- **Limitación conocida:** `totalesPorDia` omite los días sin ventas; si faltara alguno, la semana podría abarcar fechas no consecutivas.
+
+## Mapa de construcción del producto final
+
+| MiniReto | Qué construí | Parte del producto final | Estrategia o evidencia clave |
+|---|---|---|---|
+| 1. Primer tueste | Repositorio, arreglo `ventas`, exploración y diccionario de datos | Base de datos del motor (`datos.js`) | Mirar los datos antes de calcular: se detectaron ciudad mal escrita, cantidad 0 y clientes repetidos. |
+| 2. Los números del día | Indicadores con ciclos y manejo de vacíos | Indicadores básicos | Patrones contador, acumulador y máximo; trazas a mano contra el programa; decisión explícita para el arreglo vacío. |
+| 3. Del ciclo al método | Versiones con `map`/`filter`/`reduce`, agrupaciones y ranking | Reportes por ciudad y producto | Cada método se verificó contra el ciclo que reemplaza (12 pares en `OK`). |
+| 4. Analítica v0.1 | Reporte por consola y depuración | Primera versión entregable | Reproducir los errores reportados (grupos duplicados y `NaN`) con hipótesis y prueba antes de corregir. |
+| 5. ¿Cuánto cuesta cada reporte? | Generador de datos y contador de operaciones | Herramientas de medición | Predecir antes de medir: lineales x10 al multiplicar n por 10, constante x1. |
+| 6. El reporte que se volvió lento | Diagnóstico de clientes recurrentes O(n²) | Cuello de botella identificado | Traza con 5 ventas, fórmula n(n-1)/2 y tiempos que se cuadruplican al duplicar n. |
+| 7. Tiempo, memoria y cadenas | Cadena de métodos frente a recorrido único; espacio de todas las funciones | Versión final de `totalCiudad` | Contar recorridos y arreglos nuevos: mismo O(n) en tiempo, distinto O(n) frente a O(1) en memoria. |
+| 8. Analítica v0.2 | Informe de rendimiento | `RENDIMIENTO.md` | Clasificar cada función con evidencia, proyectar a 1.000.000 y priorizar riesgos. |
+| 9. Clientes recurrentes en tiempo lineal | `Set` y `Map` en lugar de ciclos anidados | Reporte de recurrentes optimizado | Método de seis fases; "recordar lo ya visto" para no buscar de nuevo. |
+| 10. Combos de regalo y frecuencias | Complementos y conteo de frecuencias con `Map` | Análisis comerciales nuevos | Patrón del complemento y patrón de frecuencias, con regla de desempate documentada. |
+| 11. La mejor racha y el presupuesto | Ventana deslizante y dos punteros | Análisis temporal y de presupuesto | Actualizar la respuesta en lugar de recalcularla; descartar un extremo con datos ordenados. |
+| 12. Analítica v1.0 | Reporte final, comparación y documentación | Producto final | Integrar, medir con datos reales y documentar para que otra persona lo ejecute sin ayuda. |
+
+**Cómo se integran:** los retos 1 a 4 construyen la base funcional (datos, indicadores, agrupaciones y primer reporte). Los retos 5 a 8 no agregan funcionalidades sino evidencia: miden el motor, encuentran su punto débil y lo documentan. Los retos 9 a 11 usan esa evidencia para aplicar la estrategia adecuada a cada problema, y el 12 lo integra en un producto que se demuestra con datos reales y con números que prueban la mejora.
+
+## Estrategia de resolución aplicada en cada optimización
+
+| Problema | Qué trabajo se repetía o sobraba | Estrategia | Resultado medido |
+|---|---|---|---|
+| Clientes recurrentes (MiniReto 9) | Buscar a cada cliente entre todas las ventas, una y otra vez, y `includes` recorriendo el resultado | Recordar lo ya visto con `Set`/`Map` (consulta de costo constante) | De 53,9 s con 100.000 ventas a decenas de milisegundos: O(n²) pasa a O(n). |
+| Total por ciudad con cadena (MiniReto 7) | Cuatro recorridos y tres arreglos nuevos (con n copias) | Un solo recorrido con un acumulador | Mismo O(n) en tiempo, pero la cadena fue entre 2,6 y 3,2 veces más lenta y usa memoria O(n) frente a O(1). |
+| Combo de regalo (MiniReto 10) | Probar todos los pares del catálogo | Patrón del complemento: preguntar a un `Map` si ya apareció `valor - precio` | O(p²) pasa a O(p): 3 pasos en lugar de 28 pares. |
+| Mejor semana (MiniReto 11) | Sumar de nuevo k días en cada posición | Ventana deslizante: sumar el día que entra y restar el que sale | O(d · k) pasa a O(d): con k = 1.000, de 66 ms a 0,2 ms. |
+| Par más cercano (MiniReto 11) | Probar todos los pares | Ordenar y usar dos punteros desde los extremos, descartando uno en cada paso | O(p²) pasa a O(p log p), y el recorrido por sí solo es O(p). |
+
+**Método común** (el de las seis fases del MiniReto 9): entender el problema, probar ejemplos y casos borde, escribir la solución de fuerza bruta y su complejidad, identificar qué trabajo se repite, implementar la versión optimizada y probar que da el mismo resultado que la original. Todas las optimizaciones se verificaron contra la versión sencilla antes de adoptarse.
+
+## Conclusión de la semana
+
+- Los errores de un reporte casi nunca están en la fórmula, sino en los datos y en cuánto trabajo hace el código cuando los datos crecen.
+- Medir antes de optimizar permitió encontrar el único cuello de botella real (clientes recurrentes) y no tocar lo que ya era rápido.
+- El patrón que se repite en todas las optimizaciones es el mismo: **guardar información para no volver a buscarla o recalcularla**, a cambio de algo de memoria.
+- La v1.0 calcula las diez secciones del reporte con 100.000 ventas en 50,5 ms (0,16 s con todo el comando); la v0.1 con la función original de recurrentes tardaba unos 44 s con esa misma cantidad de datos. La mejora fue de 75,6 veces con 10.000 ventas y de 879,1 veces con 100.000 (ver `RENDIMIENTO.md`).

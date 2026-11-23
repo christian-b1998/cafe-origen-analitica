@@ -354,6 +354,21 @@ function parMasCercano(catalogo, presupuesto) {
   return mejor;
 }
 
+// ===== MiniReto 12: totales por día =====
+
+// Total vendido por cada fecha, ordenado de la más antigua a la más reciente.
+// Devuelve [{ fecha, total }, ...]. Solo incluye las fechas que tienen ventas.
+// Tiempo O(n + d log d), con d = días distintos. Espacio O(d).
+function totalesPorDia(ventas) {
+  const porFecha = new Map();
+  for (const venta of ventas) {
+    porFecha.set(venta.fecha, (porFecha.get(venta.fecha) || 0) + valorVenta(venta));
+  }
+  return [...porFecha.entries()]
+    .map(([fecha, total]) => ({ fecha, total }))
+    .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0)); // las fechas AAAA-MM-DD se ordenan como texto
+}
+
 module.exports = {
   valorVenta,
   totalVendido,
@@ -382,4 +397,5 @@ module.exports = {
   mejorSemanaBruta,
   mejorSemana,
   parMasCercano,
+  totalesPorDia,
 };

@@ -1,19 +1,19 @@
-# Rendimiento del motor de analítica Café Origen (v0.2)
+# Rendimiento del motor de analítica Café Origen (v1.0)
 
-Este documento describe cuánto trabajo hace cada función del motor y cómo crece cuando aumentan los ventas. Está pensado para cualquier desarrollador que vaya a conectar el motor con la plataforma del marketplace.
+Este documento describe cuánto trabajo hace cada función del motor y cómo crece cuando aumentan las ventas. Está pensado para cualquier desarrollador que vaya a conectar el motor con la plataforma del marketplace.
 
 ## Resumen
 
-- Todas las funciones del motor son de tiempo **constante o lineal**, excepto una: `clientesRecurrentes`, que es **cuadrática, O(n²)**.
-- Con 1.000.000 de ventas, las funciones lineales tardan del orden de milisegundos a décimas de segundo. `clientesRecurrentes` tardaría alrededor de **1,5 horas**.
-- Es el principal riesgo del motor y la primera función que se debe optimizar.
+- Ninguna función del reporte final (v1.0) es O(n²): todas son de tiempo **constante, lineal u O(n log n) sobre pocos elementos** (días o productos).
+- `clientesRecurrentes` (O(n²)) se conserva solo como referencia y para la comparación; el reporte usa `clientesRecurrentesMap` (O(n)).
+- `node src/reporte.js 100000` calcula y muestra las diez secciones en una fracción de segundo (0,16 s de punta a punta); la v0.1 con la función original de recurrentes tardó unos 44 s con esa misma cantidad de ventas (ver "Comparación v0.1 frente a v1.0").
 
 ## Cómo se midió
 
 - **Datos:** historiales generados con `generarVentas(n)` (`src/generador.js`): 5 productos, 4 ciudades, cantidades entre 1 y 5, clientes entre 1 y n/3 distintos.
 - **Operaciones:** se cuenta 1 por cada elemento visitado y 1 por cada comparación (regla del MiniReto 5, instrumentada en `src/instrumentadas.js`). Son iguales en cualquier computador. Las de las funciones sin versión instrumentada se calcularon con la misma regla leyendo el código.
 - **Tiempos:** `performance.now()` y `console.time`, promediando varias repeticiones después de un calentamiento (`src/medir-todo.js`, `src/medir.js`, `src/medir-tiempos.js`). Dependen del equipo: sirven como orden de magnitud, no como valor exacto.
-- **Símbolos:** n = número de ventas; m = ventas que cumplen un filtro (m ≤ n); g = grupos distintos (ciudades o productos); r = clientes recurrentes.
+- **Símbolos:** n = número de ventas; m = ventas que cumplen un filtro (m ≤ n); g = grupos distintos (ciudades o productos); r = clientes recurrentes; c = clientes distintos; p = productos del catálogo; d = días distintos con ventas; k = tamaño de la ventana (días).
 - **Espacio:** se cuenta solo la memoria **extra** que usa la función; el arreglo de entrada no cuenta.
 
 ## Clasificación de las funciones
@@ -34,21 +34,29 @@ Este documento describe cuánto trabajo hace cada función del motor y cómo cre
 | `unidadesPorProducto` | Unidades por producto (objeto) | O(n) | O(g) | Igual que `totalPorCiudad`, con una clave por producto (5) | 20.000 |
 | `topProductosPorValor` | Los k productos que más dinero generaron | O(n + g log g) | O(g) | Un recorrido de n para agrupar; `Object.entries` y `map` recorren g; `sort` sobre la copia `[...ranking]` cuesta g log g; `slice` recorta a k. Todos los arreglos son de tamaño g, no n | ≈ 20.000 + el ordenamiento de 5 productos |
 | `ventasDelDia` | Ventas de una fecha | O(n) | O(m) ≤ O(n) | Un `filter`: recorre n y crea un arreglo con las ventas del día (referencias, no copias) | 20.000 |
-| `clientesRecurrentes` | Clientes con más de una compra | **O(n²)** | O(r) ≤ O(n) | **Un ciclo dentro de otro**: cada venta se compara con todas las siguientes, n(n-1)/2 comparaciones; además `includes` recorre `recurrentes` en cada coincidencia | **49.995.000** comparaciones |
+| `clientesRecurrentes` | Clientes con más de una compra | **O(n²)** | O(r) ≤ O(n) | **Un ciclo dentro de otro**: cada venta se compara con todas las siguientes, n(n-1)/2 comparaciones; además `includes` recorre `recurrentes` en cada coincidencia. Con datos como los generados domina el ciclo doble (O(n²)); en un peor caso artificial, `includes` podría llevarla hacia O(n³) | **49.995.000** comparaciones |
 | `totalCiudadCadena` | Total de una ciudad con `map` → `filter` → `map` → `reduce` | O(n) | O(n) | 4 recorridos (n + n + m + m) y 3 arreglos nuevos; el primer `map` copia n ventas con `...venta` | ≈ 35.000 |
 | `totalCiudadUnaPasada` | Total de una ciudad con un solo ciclo | O(n) | O(1) | Un `for...of` y un acumulador; no crea arreglos | 20.000 |
 | `primeraVenta` | Devuelve la primera venta | O(1) | O(1) | Un acceso por índice, sin recorrer | 1 |
 | `generarVentas` | Genera n ventas al azar (para pruebas) | O(n) | O(n) | Un ciclo que crea un objeto por venta; el resultado es el arreglo de n ventas, así que la memoria no se puede evitar | 10.000 |
 | `totalVendidoContado`, `ventaMayorContado`, `totalPorCiudadContado` | Versiones instrumentadas de `totalVendido`, `ventaMayor` y `totalPorCiudad` | O(n) | O(1), O(1) y O(g) | Mismo recorrido que las originales, más un contador que se suma por referencia | 10.000, 39.999 y 20.000 |
+| `clientesRecurrentesSet` | Clientes recurrentes con dos `Set` | O(n) | O(c + r) | Un `for...of`; por venta una consulta `has` y una inserción `add`, de costo constante | ≈ 30.000 (3 por venta) |
+| `comprasPorCliente` | `Map` cliente -> número de compras | O(n) | O(c) | Un recorrido con `get` y `set` por venta | ≈ 30.000 (3 por venta) |
+| `clientesRecurrentesMap` | Clientes recurrentes a partir de ese `Map` | O(n + c) | O(c) | `comprasPorCliente` más un recorrido de las c entradas | ≈ 36.000 |
+| `comboRegalo` | Dos productos que suman un valor (fuerza bruta) | O(p²) | O(1) | Ciclo doble sobre los p productos del catálogo | 28 pares (8 productos) |
+| `comboRegaloMap` | Lo mismo con un `Map` de complementos | O(p) | O(p) | Un recorrido del catálogo; por producto una consulta y una inserción | 3 pasos para 87.000 (8 productos) |
+| `productoEstrellaPorCiudad` | Producto más frecuente de cada ciudad | O(n) | O(g) | Un recorrido de las ventas con un `Map` de `Map`; luego se revisan las g parejas (ciudad, producto) | ≈ 50.000 (5 por venta) |
+| `primerClienteUnico` | Primer cliente con una sola compra | O(n) | O(c) | Dos recorridos y un `Map` | ≤ 50.000 (3n + hasta 2n) |
+| `mejorSemanaBruta` | Mejor bloque de k días, sumando cada bloque desde cero | O(d · k) | O(1) | Ciclo doble: (d - k + 1) posiciones por k sumas | ≈ 70.000 sumas (10.000 días, k = 7) |
+| `mejorSemana` | Mejor bloque de k días con ventana deslizante | O(d) | O(1) | Suma la primera ventana y luego una suma y una resta por desplazamiento | ≈ 10.000 pasos (10.000 días) |
+| `parMasCercano` | Dos productos con suma máxima sin pasar un presupuesto | O(p log p) | O(p) | Ordena una copia (p log p) y recorre con dos punteros (a lo sumo p pasos) | ≈ 24 comparaciones al ordenar + 7 pasos (8 productos) |
+| `totalesPorDia` | Total vendido por fecha, ordenado | O(n + d log d) | O(d) | Un recorrido de las ventas con un `Map`; luego se ordenan las d fechas | ≈ 30.000 + ordenar 30 fechas |
+| `calcularReporte` | Todos los cálculos del reporte v1.0 | **O(n + d log d + p log p)**, es decir, O(n) con pocos días y productos | O(n) | Suma de las funciones anteriores: casi todas son O(n); `totalesPorDia` ordena d fechas y `topProductosPorValor` y `parMasCercano` ordenan pocos productos. En las pruebas hay 30 días y 5 a 8 productos, así que pesan poco; si cada venta cayera en un día distinto (d = n), sería O(n log n). El único arreglo grande es el `filter` que cuenta las ventas válidas | no aplica |
 
 Notas sobre la tabla:
 
 - Las operaciones de `totalVendido`, `ventaMayor`, `totalPorCiudad` y `primeraVenta` provienen de la medición del MiniReto 5. Las demás se calcularon con la misma regla leyendo el código. Donde aparece `≈`, el valor depende de cuántas ventas son de la ciudad pedida (m ≈ n/4, y varía en cada generación al azar).
 - Con la muestra real de 12 ventas, `clientesRecurrentes` hace 66 comparaciones; con 10.000 son casi 50 millones. Esa es la diferencia entre O(n) y O(n²).
-
-## Tiempos medidos
-
-Salida de `node src/medir-todo.js`. "Estimado" es el tiempo con 10.000 multiplicado por 100 (la proyección lineal); "Medido" es el tiempo real con 1.000.000 de ventas.
 
 ## Tiempos medidos
 
@@ -100,14 +108,47 @@ Comprobación de que el crecimiento es cuadrático: con n = 10.000 la función t
 
 Se adopta la segunda estimación, porque la primera quedó corta: con n = 100.000 la estimación hecha con 16.000 fue 34,9 s y el tiempo real fue 53,9 s (54 % más). En 1.000.000 de ventas se harían unas 5 × 10¹¹ comparaciones.
 
+La medición de 100.000 ventas varió entre ejecuciones: 53,9 s (MiniReto 6) y 44,4 s (MiniReto 12). Con 44,4 s, k = 4,44 × 10⁻⁶ ms y la estimación para 1.000.000 es ≈ 4.442 s (≈ 1,2 horas). Por eso la proyección se expresa como un rango: **entre 1,2 y 1,5 horas**.
+
 | Reporte | Tiempo proyectado con 1.000.000 de ventas |
 |---|---|
 | Resumen general, ciudades, productos, top 3 y día (funciones lineales) | Décimas de segundo o menos |
 | `totalCiudadCadena` | ≈ 0,2 s (medido) |
 | `totalCiudadUnaPasada` | ≈ 0,09 s (medido) |
-| `clientesRecurrentes` | **≈ 1,5 horas** |
+| `clientesRecurrentes` | **≈ 1,2 a 1,5 horas** |
 
-## Riesgos
+**Ejemplo completo del cálculo** (con la medición de 44,4 s para 100.000 ventas):
+
+- k = 44.424,6 ms / (100.000)² = 4,44 × 10⁻⁶ ms
+- Para n = 1.000.000: 4,44 × 10⁻⁶ × (1.000.000)² = 4,44 × 10⁶ ms ≈ 4.442 s ≈ 1,2 horas
+
+**Esta cifra es una estimación**: la función no se ejecutó con 1.000.000 de ventas. En cambio, las funciones lineales de la tabla de "Tiempos medidos" sí se midieron directamente con 1.000.000.
+
+## Comparación v0.1 frente a v1.0
+
+Se mide el tiempo total de cálculo de todas las secciones del reporte (`src/comparar-versiones.js`), con datos generados.
+
+- **v0.1 como se entregó:** las cinco secciones del MiniReto 4. Ya usaban funciones lineales, por lo que eran rápidas.
+- **v0.1 + recurrentes original:** el reporte v0.1 al que se le suma el reporte de clientes recurrentes con la función original del compañero (O(n²)). Es la situación que la gerente reportó: "se quedó pensando".
+- **v1.0:** las diez secciones, con `clientesRecurrentesMap` y las demás funciones optimizadas.
+
+| Reporte | 10.000 ventas | 100.000 ventas |
+|---|---|---|
+| v0.1 como se entregó (5 secciones) | 1,9 ms | 18,7 ms |
+| v0.1 + clientes recurrentes con la función original O(n²) | 335,4 ms | 44.424,6 ms |
+| v1.0 (10 secciones) | 4,4 ms | 50,5 ms |
+| Mejora de v1.0 frente a v0.1 + recurrentes original | 75,6 veces más rápida | 879,1 veces más rápida |
+
+Comando `node src/reporte.js 100000` de punta a punta (incluye arrancar Node, generar los datos e imprimir): **156 ms (0,16 s)**.
+
+Cómo leerla:
+
+- La v1.0 hace **más cosas** que la v0.1 (diez secciones frente a cinco) y aun así sigue en el orden de milisegundos: 50,5 ms con 100.000 ventas. Por eso es algo más lenta que la v0.1 original (18,7 ms): calcula el doble de secciones, incluidas las nuevas.
+- La combinación v0.1 + recurrentes original crece de forma cuadrática: al pasar de 10.000 a 100.000 ventas (n x10) su tiempo se multiplicó por unas 132 (335,4 ms -> 44.424,6 ms), cerca del x100 esperado para O(n²). El tiempo de la v1.0 se multiplicó por unas 11,5 (4,4 ms -> 50,5 ms), cerca del x10 esperado para O(n).
+- Por eso la mejora aumenta con el tamaño de los datos: pasa de 75,6 veces con 10.000 ventas a 879,1 veces con 100.000.
+- Con 100.000 ventas, el reporte pasó de unos 44 segundos a 50,5 ms. El requisito del marketplace (menos de un segundo con 100.000 ventas) se cumple con holgura, y el límite de este reto (5 segundos) también: el comando completo tarda 0,16 s.
+
+## Riesgos (v0.2, histórico)
 
 Ordenados de mayor a menor riesgo cuando los datos crezcan.
 
@@ -125,9 +166,23 @@ Ordenados de mayor a menor riesgo cuando los datos crezcan.
 
 `generarVentas` es O(n) en tiempo y memoria, pero solo se usa para pruebas, no en el reporte.
 
+## Riesgos de la v1.0
+
+Con `clientesRecurrentes` reemplazada, el riesgo crítico quedó resuelto. Los que quedan, ordenados de mayor a menor (mismo criterio: crecimiento del tiempo, memoria, proyección medida y peor caso):
+
+| # | Función | Riesgo | Razón |
+|---|---|---|---|
+| 1 | `comprasPorCliente` y las versiones con `Map`/`Set` | Bajo-medio | Memoria O(c): con los datos generados c ≈ n/3, así que con 1.000.000 de ventas el `Map` tiene unas 317.000 entradas. En un servidor con poca memoria es el mayor consumidor del reporte. |
+| 2 | `calcularReporte` (ventas válidas con `filter`) | Bajo | El `filter` crea un arreglo de hasta n elementos solo para contarlos; se podría contar con un ciclo y memoria O(1). |
+| 3 | `parMasCercano` | Bajo | Ordena el catálogo en cada llamada (O(p log p)). Con un catálogo grande convendría ordenarlo una vez y reutilizarlo. |
+| 4 | `totalesPorDia` | Bajo | Crece con los días distintos (O(d log d)), no con las ventas. |
+| 5 | Resto de funciones lineales | Bajo | Un recorrido y memoria constante o proporcional a pocos grupos. |
+
+**Limitación funcional:** `totalesPorDia` solo incluye las fechas que tienen ventas, así que si algún día no hubo ventas, la "mejor semana" calculada desde las ventas podría abarcar fechas no consecutivas. Con los datos generados (30 días, todos con ventas) y con los totales diarios entregados por la gerente no ocurre.
+
 ## Plan de optimización: `clientesRecurrentes`
 
-*(Solo la idea; todavía no está implementada.)*
+*(Plan escrito en el MiniReto 8 y ya implementado en el MiniReto 9 como `clientesRecurrentesMap`; ver "Actualización (MiniReto 9)".)*
 
 **¿Qué trabajo se repite?**
 
